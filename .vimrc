@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.77                                                         ║
+" ║  Version  : 7.78                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -23,7 +23,7 @@ set termencoding=utf-8
 set guifont=Consolas\ Regular\ 9
 set ignorecase
 set smartcase
-set autoread
+set noautoread
 set shortmess+=A
 
 if !isdirectory(expand('~/.vim/swp'))
@@ -83,7 +83,21 @@ function! GuiTabLabel() abort
     return l:name . l:mod . l:ro
 endfunction
 
-au CursorHold,CursorHoldI * silent! checktime
+function! s:FileChangedGuard() abort
+    if &modified
+        let v:fcs_choice = 'no'
+        echohl WarningMsg
+        echomsg 'File changed on disk — buffer has UNSAVED changes, kept as-is (:e! to reload)'
+        echohl NONE
+    else
+        let v:fcs_choice = 'reload'
+    endif
+endfunction
+
+augroup haoz_file_changed
+    autocmd!
+    autocmd FileChangedShell * call s:FileChangedGuard()
+augroup END
 
 if !has('gui_running') && has('termguicolors')
     if &term =~# 'tmux\|screen' || $COLORTERM =~# 'truecolor\|24bit'
@@ -691,7 +705,7 @@ function! s:AutoSaveSchedule() abort
     if s:autosave_timer != -1
         call timer_stop(s:autosave_timer)
     endif
-    let s:autosave_timer = timer_start(get(g:, 'autosave_delay', 800),
+    let s:autosave_timer = timer_start(get(g:, 'autosave_delay', 2000),
         \ {-> s:AutoSaveNow()})
 endfunction
 
@@ -3895,7 +3909,10 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     (double-click không để lại Visual mode).')
     call add(l:L, '     Lệnh: `:MdLink`.  (`:MdSyn` = soi nhóm syntax/màu dưới con trỏ)')
     call add(l:L, '     (FOLD của .md xem mục ▶ FOLDING)')
-    call add(l:L, '  • `autoread` + CursorHold auto :checktime (detect external changes)')
+    call add(l:L, '  • `noautoread` — KHÔNG tự nạp lại file khi file đổi trên đĩa')
+    call add(l:L, '     (NFS lệch giờ làm Vim tưởng file đổi liên tục -> tự reload, MẤT')
+    call add(l:L, '     dòng chưa ghi, con trỏ nhảy).  Muốn nạp lại: `:e` (hoặc `:e!`).')
+    call add(l:L, '     `FileChangedShell` chặn nạp lại nếu buffer còn thay đổi chưa ghi.')
     call add(l:L, '  • SWAP FILE: vẫn bật (lưới an toàn cho auto-save), nhưng dồn về')
     call add(l:L, '     `~/.vim/swp/` — không rải *.swp trong cây source')
     call add(l:L, '  • `shortmess+=A`: gặp file đã có swap thì KHÔNG hỏi')
