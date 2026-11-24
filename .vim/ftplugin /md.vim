@@ -997,6 +997,10 @@ function! s:MdFormatTick(timer) abort
 endfunction
 
 function! s:MdScheduleFormat(...) abort
+  " Tự format đang TẮT -> thoát ngay (không tạo/huỷ timer mỗi phím gõ).
+  if !s:AutoFormatOn()
+    return
+  endif
   let l:delay = (a:0 && a:1 > 0) ? a:1 : 700
   if s:md_fmt_timer != -1
     call timer_stop(s:md_fmt_timer)
@@ -1019,6 +1023,11 @@ endfunction
 " Gõ phím: dồn lại rồi mới vẽ (đỡ lag).  Trong Insert dồn lâu hơn vì mỗi lần
 " vẽ lại là một lần redraw cả cửa sổ.
 function! s:FenceBgSchedule(...) abort
+  " Nền đang TẮT -> thoát ngay, KHÔNG đụng tới timer (mỗi phím gõ đều gọi
+  " hàm này, tạo/huỷ timer liên tục là chi phí vô ích).
+  if get(g:, 'md_fence_bg', 'NONE') ==# 'NONE'
+    return
+  endif
   let l:delay = (a:0 && a:1 > 0) ? a:1 : 150
   if s:fence_bg_timer != -1
     call timer_stop(s:fence_bg_timer)
@@ -1429,7 +1438,7 @@ function! MdFold()
   echo ""
   if exists('*HaozMdFoldLevel')
     setlocal foldmethod=expr
-    setlocal foldexpr=HaozMdFoldLevel(v:lnum) 
+    setlocal foldexpr=HaozMdFoldLevel(v:lnum)
     if exists('*HaozMdFoldText')
       setlocal foldtext=HaozMdFoldText()
     endif
