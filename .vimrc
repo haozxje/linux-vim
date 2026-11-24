@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.82                                                         ║
+" ║  Version  : 7.83                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -39,6 +39,86 @@ set tabstop=4
 set shiftwidth=4
 set expandtab
 set autoindent
+let g:sleuth_automatic = 0
+let g:haoz_autoindent = get(g:, 'haoz_autoindent', 1)
+let g:haoz_autoindent_maxlines = get(g:, 'haoz_autoindent_maxlines', 400)
+
+function! s:HaozAutoIndent() abort
+    if !get(g:, 'haoz_autoindent', 1) || get(b:, 'haoz_indent_done', 0)
+        return
+    endif
+    let b:haoz_indent_done = 1
+    if &buftype !=# '' || bufname('%') ==# ''
+        return
+    endif
+    if &filetype ==# 'md' || &filetype ==# 'markdown'
+        return
+    endif
+    let l:scan = min([line('$'), get(g:, 'haoz_autoindent_maxlines', 400)])
+    if l:scan < 2
+        return
+    endif
+    let l:tabs = 0
+    let l:spaces = 0
+    let l:diff = {}
+    let l:prev = -1
+    for l:line in getline(1, l:scan)
+        let l:lead = matchstr(l:line, '^\s\+')
+        if l:lead ==# ''
+            let l:prev = -1
+            continue
+        endif
+        if strpart(l:lead, 0, 1) ==# "\t"
+            let l:tabs += 1
+            let l:prev = -1
+            continue
+        endif
+        let l:spaces += 1
+        let l:w = strlen(l:lead)
+        if l:prev >= 0 && l:w > l:prev
+            let l:d = l:w - l:prev
+            if l:d >= 2 && l:d <= 8
+                let l:diff[l:d] = get(l:diff, l:d, 0) + 1
+            endif
+        endif
+        let l:prev = l:w
+    endfor
+    if l:tabs + l:spaces < 4
+        return
+    endif
+    let l:unit = 4
+    let l:best = 0
+    for l:v in values(l:diff)
+        if l:v > l:best
+            let l:best = l:v
+        endif
+    endfor
+    if l:best > 0
+        for l:u in [2, 3, 4, 5, 6, 7, 8]
+            if get(l:diff, l:u, 0) * 2 >= l:best
+                let l:unit = l:u
+                break
+            endif
+        endfor
+    endif
+    let l:use_tabs = l:tabs > l:spaces
+    if l:use_tabs
+        setlocal noexpandtab
+        let &l:softtabstop = 0
+    else
+        setlocal expandtab
+        let &l:softtabstop = l:unit
+    endif
+    let &l:tabstop = l:unit
+    let &l:shiftwidth = l:unit
+    let b:haoz_indent_unit = l:unit
+    let b:haoz_indent_tabs = l:use_tabs
+endfunction
+
+augroup haoz_autoindent
+    autocmd!
+    autocmd FileType * call s:HaozAutoIndent()
+augroup END
 set nowrap
 set linebreak
 set breakindent
@@ -389,6 +469,10 @@ function! s:DetectIndent() abort
 endfunction
 
 function! StatusIndent() abort
+    if exists('b:haoz_indent_unit')
+        return b:haoz_indent_tabs ? printf('[%dtb]', b:haoz_indent_unit)
+                                  \ : printf('[%dsp]', b:haoz_indent_unit)
+    endif
     let l:tick = get(b:, 'changedtick', 0)
     if get(b:, 'indent_cache_tick', -1) == l:tick
         \ && exists('b:indent_cache')
@@ -3811,6 +3895,11 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     `[4sp]` = thụt 4 cột bằng dấu cách, `[8tb]` = thụt bằng TAB,')
     call add(l:L, '     `[mix]` = trộn cả hai (mỗi loại >= 10% số dòng có thụt).')
     call add(l:L, '     Khuôn: `<cỡ><tb|sp>`')
+    call add(l:L, '  • AUTO-DETECT INDENT (kiểu VSCode): mở file là quét tối đa 400')
+    call add(l:L, '     dòng MỘT LẦN, tự đặt `expandtab`/`noexpandtab` + `tabstop`/')
+    call add(l:L, '     `shiftwidth`/`softtabstop` theo file.  Bỏ qua file md và file')
+    call add(l:L, '     không tên.  Tắt: `let g:haoz_autoindent = 0`; đổi số dòng quét:')
+    call add(l:L, '     `let g:haoz_autoindent_maxlines = 800`.  Không chạy lại khi gõ.')
     call add(l:L, '  • Khối 3 `[<filetype>]` — filetype/syntax của buffer')
     call add(l:L, '     Buffer RỖNG (chưa có nội dung) hiện `[none]`, kể cả khi')
     call add(l:L, '     filetype chỉ là `log` do autocmd đặt mặc định.')
