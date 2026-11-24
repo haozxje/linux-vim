@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.78                                                         ║
+" ║  Version  : 7.82                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -30,6 +30,7 @@ if !isdirectory(expand('~/.vim/swp'))
     silent! call mkdir(expand('~/.vim/swp'), 'p')
 endif
 set directory=~/.vim/swp//,/tmp//
+set nowritebackup
 set number
 set mouse=a
 set showtabline=2
@@ -38,7 +39,7 @@ set tabstop=4
 set shiftwidth=4
 set expandtab
 set autoindent
-set wrap
+set nowrap
 set linebreak
 set breakindent
 let &showbreak = '↪ '
@@ -113,9 +114,9 @@ set background=dark
 colorscheme haoz
 
 filetype plugin on
-au BufNewFile,BufRead *.md setlocal ft=md
+au BufNewFile,BufRead *.md setlocal ft=md nowrap
 au FileType md setlocal nowrap shiftwidth=4
-au BufWinEnter,WinEnter *.md setlocal nowrap shiftwidth=4
+au BufReadPost,BufWinEnter,WinEnter *.md setlocal nowrap shiftwidth=4
 
 function! s:MdLeadCodes(text) abort
     let l:out = []
@@ -250,7 +251,7 @@ let g:md_fenced_languages = [
       \ ]
 
 if has('conceal')
-  au FileType md setlocal conceallevel=2 concealcursor=nc
+  au FileType md setlocal conceallevel=0 concealcursor=nc
 endif
 
 highlight Normal      ctermbg=black guibg=#000000
@@ -1011,9 +1012,9 @@ function! HaozMdFoldSetup() abort
     setlocal foldmethod=indent
     setlocal foldenable
     setlocal foldtext=HaozMdFoldText()
-    if get(b:, 'haoz_fold_lvl', -1) != 2
-        setlocal foldlevel=2
-        let b:haoz_fold_lvl = 2
+    if get(b:, 'haoz_fold_lvl', -1) != 99
+        setlocal foldlevel=99
+        let b:haoz_fold_lvl = 99
     endif
     let b:haoz_fold_home = 2
     nnoremap <buffer> <silent> zo :<C-U>call HaozFoldToggleAll()<CR>
@@ -3941,8 +3942,8 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     `shiftwidth=4` được GHIM cho buffer md (`FileType`/`BufWinEnter`)')
     call add(l:L, '     để sleuth đổi sw cũng không làm fold sai (lỗi "fold 559 dòng").')
     call add(l:L, '     Cấp: cột 0 = 1 (`#`,`##`), 4 space = 2 (`###`), 8 space = 3 …')
-    call add(l:L, '     Mở file: **`foldlevel=2`** -> `#` và `##` MỞ, `###` GẬP')
-    call add(l:L, '     (thấy `▸ ... ⋯ N dòng`).  (1 -> gập cả `##`; 0 -> gập sạch)')
+    call add(l:L, '     Mở file: **`foldlevel=99`** -> MỞ HẾT, thấy toàn bộ nội dung.')
+    call add(l:L, '     Bấm `zo` để GẬP VỀ mức 2 (`#`/`##` mở, `###` gập `▸ ... ⋯ N dòng`)')
     call add(l:L, '  • `.sv/.v/.svh/.svt/.svti`: `foldmethod=indent`, `foldlevel=3`.')
     call add(l:L, '     `foldtext=HaozSvFoldText()` — GIỐNG md: `▸ <dòng đầu>  ⋯ N dòng`')
     call add(l:L, '     `foldlevel` chỉ đặt ở lần mở buffer ĐẦU (b:haoz_fold_init) nên')
@@ -4116,10 +4117,9 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • `F10`  Toggle GVim menu bar + toolbar')
     call add(l:L, '  • `F11`  Toggle window maximize (wmctrl, Linux/X11)')
     call add(l:L, '  • `F12`  Copy full file path to clipboard')
-    call add(l:L, '  • `Alt-Z` Toggle line wrap — MẶC ĐỊNH WRAP BẬT cho mọi file')
-    call add(l:L, '     (`set wrap` + `linebreak` + `breakindent`, dòng nối có `↪`;')
-    call add(l:L, '     panel WinList / session picker / Vimrc Manual luôn nowrap;')
-    call add(l:L, '     riêng *.md mở ra là NOWRAP — ftplugin/md.vim đặt setlocal)')
+    call add(l:L, '  • `Alt-Z` Toggle line wrap — MẶC ĐỊNH **NOWRAP cho MỌI file**')
+    call add(l:L, '     (`set nowrap`; `linebreak` + `breakindent` + `↪` vẫn giữ, chỉ')
+    call add(l:L, '     hiện khi bạn bật wrap.  *.md cũng nowrap — ftplugin đặt lại)')
     call add(l:L, '')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     return l:L
