@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.92                                                         ║
+" ║  Version  : 7.95                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -17,12 +17,21 @@ let g:haoz_win_h = get(g:, 'haoz_win_h', 900)
 let g:haoz_window_maximized = 1
 
 function! s:HaozScreenSize() abort
-    for l:cmd in ['xrandr --current 2>/dev/null | grep -m1 "\*"',
-                \ 'xdpyinfo 2>/dev/null | grep -m1 dimensions']
-        let l:m = matchlist(system(l:cmd), '\(\d\+\)x\(\d\+\)')
-        if !empty(l:m)
-            return [str2nr(l:m[1]), str2nr(l:m[2])]
-        endif
+    for l:cmd in ['xrandr --current', 'xdpyinfo']
+        let l:out = ''
+        try
+            let l:out = system(l:cmd)
+        catch
+            let l:out = ''
+        endtry
+        for l:line in split(l:out, "\n")
+            if l:line =~# '\*' || l:line =~# 'dimensions'
+                let l:m = matchlist(l:line, '\(\d\+\)x\(\d\+\)')
+                if !empty(l:m)
+                    return [str2nr(l:m[1]), str2nr(l:m[2])]
+                endif
+            endif
+        endfor
     endfor
     return [1920, 1080]
 endfunction
@@ -35,8 +44,8 @@ function! HaozToggleFullscreen() abort
         let [l:sw, l:sh] = s:HaozScreenSize()
         let l:x = max([0, (l:sw - g:haoz_win_w) / 2])
         let l:y = max([0, (l:sh - g:haoz_win_h) / 2])
-        silent! call system('wmctrl -ir ' . v:windowid
-            \ . printf(' -e 0,%d,%d,%d,%d', l:x, l:y, g:haoz_win_w, g:haoz_win_h))
+        silent! call system('wmctrl -ir ' . v:windowid . ' -e 0,'
+            \ . l:x . ',' . l:y . ',' . g:haoz_win_w . ',' . g:haoz_win_h)
         let g:haoz_window_maximized = 0
     else
         silent! call system('wmctrl -ir ' . v:windowid
@@ -917,16 +926,24 @@ endfunction
 
 function! ClipPush() abort
     let l:tools = s:ClipTools()
-    if !empty(l:tools)
-        silent call system(l:tools[0] . ' >/dev/null 2>&1', @")
-    endif
+    if empty(l:tools) | return | endif
+    if !executable(split(l:tools[0])[0]) | return | endif
+    try
+        silent call system(l:tools[0], @")
+    catch
+    endtry
 endfunction
 
 function! ClipPull() abort
     let l:tools = s:ClipTools()
     if empty(l:tools) | return '' | endif
-    let l:text = system(l:tools[1])
-    if !v:shell_error
+    if !executable(split(l:tools[1])[0]) | return '' | endif
+    let l:text = ''
+    try
+        let l:text = system(l:tools[1])
+    catch
+    endtry
+    if !v:shell_error && l:text !=# ''
         call setreg('"', substitute(l:text, '\r', '', 'g'))
     endif
     return ''
