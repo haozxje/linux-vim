@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.88                                                         ║
+" ║  Version  : 7.89                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -4015,6 +4015,10 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • Unset filetype auto-defaults to "log" on read')
     call add(l:L, '  • `*.md` mang ft `md`, KHÔNG gọi `md#setup()` (7 phím leader')
     call add(l:L, '     `\= \- \l \x \t \z \p` của plugin đã bỏ; chỉ giữ fold + lệnh)')
+    call add(l:L, '  • FTPPLUGIN md ĐÃ TẮT: đầu file `~/.vim/ftplugin/md.vim` có công')
+    call add(l:L, '     tắc `g:md_ftplugin_enable` (mặc định 0 -> `finish` ngay).')
+    call add(l:L, '     Buffer .md CHỈ còn syntax tô màu + fold/nowrap của vimrc.')
+    call add(l:L, '     Bật lại toàn bộ tính năng md: `let g:md_ftplugin_enable = 1`.')
     call add(l:L, '     → plugin `hughbien/md-vim`; bản riêng của haozxje CHỈ 2 file:')
     call add(l:L, '     `~/.vim/syntax/md.vim` + `~/.vim/ftplugin/md.vim`')
     call add(l:L, '     (repo KHÔNG có autoload/ — md#setup nằm ngay trong ftplugin).')
