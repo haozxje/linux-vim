@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.85                                                         ║
+" ║  Version  : 7.86                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -1727,6 +1727,7 @@ function! WinListBuildAllTabLines() abort
     let l:cur_tab = tabpagenr()
     let l:lines   = []
     let l:textw   = s:WinListTextWidth()
+    let s:winlist_hdr_tids = {}
 
     for l:t in range(1, tabpagenr('$'))
         call WinListEnsureTabID(l:t)
@@ -1747,9 +1748,15 @@ function! WinListBuildAllTabLines() abort
             \ ? '[1 split]'
             \ : '[' . l:split_count . ' splits]'
         let l:active_mark = (l:t == l:cur_tab) ? ' ◀' : ''
-        call add(l:lines,
-            \ printf('=== Tab %d  %s%s ===§%s',
-            \        l:t, l:split_label, l:active_mark, l:tid))
+        let l:hdr = printf('=== Tab %d  %s%s ', l:t, l:split_label, l:active_mark)
+        let l:pad = l:textw - strwidth(l:hdr)
+        if l:pad > 3
+            let l:hdr .= repeat('=', l:pad)
+        else
+            let l:hdr .= '==='
+        endif
+        let s:winlist_hdr_tids[len(l:lines) + 1] = l:tid
+        call add(l:lines, l:hdr)
 
         if l:t == l:cur_tab
             let l:active_buf = s:CurrentContentBuf()
@@ -1913,6 +1920,7 @@ function! WinListRefresh() abort
     setlocal modifiable
     silent! %delete _
     silent! call setline(1, l:lines)
+    let b:winlist_hdr_tids = get(s:, 'winlist_hdr_tids', {})
     setlocal nomodifiable nomodified
     setlocal statusline=%!WinListStatusLine()
     silent! call WinListApplySyntax()
@@ -2300,10 +2308,10 @@ function! WinListJump() abort
     let l:display_idx = str2nr(l:m[1])
 
     let l:header_tid = ''
+    let l:tids = get(b:, 'winlist_hdr_tids', {})
     for l:lnum in range(1, line('.'))
-        let l:hdr = matchlist(getline(l:lnum), '^=== Tab \d\+ .*===§\(.\+\)$')
-        if !empty(l:hdr)
-            let l:header_tid = l:hdr[1]
+        if getline(l:lnum) =~# '^=== Tab \d\+'
+            let l:header_tid = get(l:tids, l:lnum, '')
         endif
     endfor
 
@@ -4160,6 +4168,9 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • Độ rộng: WinList `g:winlist_width = 36` (min 15/max 50, luôn')
     call add(l:L, '     <= nửa màn hình); NERDTree `g:NERDTreeWinSize = 78`.')
     call add(l:L, '  • WinList         LUÔN hiển thị ở mọi tab (cột trái, full height)')
+    call add(l:L, '     Dòng tiêu đề `=== Tab N  [x split] ===...` được ĐỆM `=` cho')
+    call add(l:L, '     vừa ĐÚNG bề ngang panel; Tab-ID (trước đây nối sau dấu `§`)')
+    call add(l:L, '     không còn in ra nữa -> không bị wrap thành dòng `====` thừa.')
     call add(l:L, '     Panel WRAP (`wrap linebreak`): tên test/file dài thì xuống')
     call add(l:L, '     dòng, không bị cắt cụt ở mép panel.  Dòng active được đệm')
     call add(l:L, '     space tới textw-1 nên nền xanh phủ kín hàng mà không tràn.')
