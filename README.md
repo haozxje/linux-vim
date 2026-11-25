@@ -177,7 +177,7 @@ cho buffer markdown đang mở.
 ## 9. Statusline
 
 ```
-~/.vimrc                                    [CL12:TL431][4sp][md][V7.105]
+~/.vimrc                                    [CL12:TL431][4sp][md][V7.106]
 ```
 
 | Khối | Nghĩa |
@@ -207,12 +207,13 @@ Nền statusline đổi màu theo mode: xanh đậm (Normal), cam (Insert), xanh
 
 ## 11. Font & tiếng Việt (GVim)
 
-Thứ tự font (tự lùi nếu thiếu): **JetBrains Mono → Noto Sans Mono → DejaVu Sans Mono**,
+Thứ tự font (tự lùi nếu thiếu): **JetBrains Mono NL → JetBrains Mono → Noto Sans Mono → DejaVu Sans Mono**,
 cỡ **5pt**. Sửa trong `.vimrc` (dòng `guifont`) hoặc `.gvimrc`.
 
 ### Cài font đóng gói sẵn
-Repo có `.vim/fonts.b64` — **một file text** chứa 4 nét JetBrains Mono
-(Regular/Bold/Italic/BoldItalic), dùng khi chỉ copy-paste được qua clipboard.
+Repo có `.vim/fonts.b64` (554 KB) — **một file text** chứa 4 nét **JetBrains Mono NL**
+(bản **KHÔNG ligature**: `->`, `!=`, `>=` hiện đúng từng ký tự), dùng khi chỉ
+copy-paste được qua clipboard.
 
 **Cách 1 (khuyên — chỉ mở GVim 1 lần):** chạy trong terminal, **trước khi** mở GVim:
 ```bash
@@ -276,8 +277,8 @@ let g:md_fenced_languages = [...] " ngôn ngữ được tô trong fence
 .vim/colors/haoz.vim   colorscheme
 .vim/syntax/md.vim     syntax markdown (bản riêng, sửa từ hughbien/md-vim)
 .vim/ftplugin/md.vim   ftplugin markdown (mặc định TẮT — xem mục 8)
-.vim/fonts.b64         JetBrains Mono (base64, 4 nét)
-.vim/fonts/*.ttf       JetBrains Mono (bản nhị phân, nếu có)
+.vim/fonts.b64         JetBrains Mono **NL** (base64, 4 nét, không ligature)
+.vim/fonts/*.ttf       JetBrains Mono NL (bản nhị phân, nếu có)
 ```
 
 ---
