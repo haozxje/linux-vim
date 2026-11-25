@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.106                                                        ║
+" ║  Version  : 7.109                                                        ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -560,13 +560,11 @@ endif
 unlet! s:haoz_self
 
 set statusline=%F
-set statusline+=%#LineNr#
 set statusline+=%=
-set statusline+=%#StatusLinePos#\ [CL%l:TL%L]
-set statusline+=%#StatusLinePos#%{StatusIndent()}
-set statusline+=%#StatusLinePos#%{StatusFiletype()}
-set statusline+=%#StatusLinePos#[%{g:haoz_vimrc_version}]
-set statusline+=%#CursorColumn#
+set statusline+=\ [CL%l:TL%L]
+set statusline+=%{StatusIndent()}
+set statusline+=%{StatusFiletype()}
+set statusline+=[%{g:haoz_vimrc_version}]
 
 function! s:DetectIndent() abort
     let l:last    = min([line('$'), 400])
@@ -647,20 +645,20 @@ function! StatusFiletype() abort
     return '[' . l:ft . ']'
 endfunction
 
-highlight StatusLine   guifg=#00ffff guibg=#001933
-highlight StatusLineNC guifg=#888888 guibg=#001933
+highlight StatusLine   guifg=#a8a8a8 guibg=#001933
+highlight StatusLineNC guifg=#6c6c6c guibg=#1c1c1c
 highlight link StatusLinePos StatusLine
 
 function! StatusLineSetNormal() abort
-    silent! highlight StatusLine guifg=#00ffff guibg=#001933
+    silent! highlight StatusLine guifg=#a8a8a8 guibg=#001933
 endfunction
 
 function! StatusLineSetInsert() abort
-    silent! highlight StatusLine guifg=#00ffff guibg=#661900
+    silent! highlight StatusLine guifg=#a8a8a8 guibg=#661900
 endfunction
 
 function! StatusLineSetReplace() abort
-    silent! highlight StatusLine guifg=#00ffff guibg=#006619
+    silent! highlight StatusLine guifg=#a8a8a8 guibg=#006619
 endfunction
 
 augroup DynamicStatusLine
@@ -927,13 +925,10 @@ function! s:AutoSaveSchedule() abort
     if !s:AutoSaveWritable()
         return
     endif
-    if mode() =~# '^[iR]'
-        return
-    endif
     if s:autosave_timer != -1
         call timer_stop(s:autosave_timer)
     endif
-    let s:autosave_timer = timer_start(get(g:, 'autosave_delay', 2000),
+    let s:autosave_timer = timer_start(get(g:, 'autosave_delay', 1000),
         \ {-> s:AutoSaveNow()})
 endfunction
 
@@ -1505,6 +1500,7 @@ let g:winlist_min_width    = 15
 let g:winlist_max_width    = 50
 let g:winlist_padding      = 2
 let g:winlist_width        = 36
+let g:winlist_full_path    = get(g:, 'winlist_full_path', 0)
 
 let NERDTreeShowHidden     = 1
 let g:NERDTreeWinPos       = "left"
@@ -1922,8 +1918,12 @@ function! WinListBuildAllTabLines() abort
 
             if l:fullpath !=# ''
                 let l:abspath = fnamemodify(l:fullpath, ':p')
-                let l:dirpath = fnamemodify(l:abspath, ':h')
-                call add(l:lines, '     ' . WinListShortPath(l:dirpath))
+                if get(g:, 'winlist_full_path', 0)
+                    call add(l:lines, '     ' . fnamemodify(l:abspath, ':~'))
+                else
+                    let l:dirpath = fnamemodify(l:abspath, ':h')
+                    call add(l:lines, '     ' . WinListShortPath(l:dirpath))
+                endif
             else
                 call add(l:lines, '     -')
             endif
@@ -4079,7 +4079,11 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     header (`Version  : X.Y`) lúc khởi động -> bump header là')
     call add(l:L, '     statusline tự đổi, không phải sửa thêm chỗ nào.')
     call add(l:L, '     (`g:haoz_vimrc_version`; không đọc được file -> `[V?]`)')
-    call add(l:L, '  • Màu chữ vị trí bám theo màu path (highlight link StatusLinePos)')
+    call add(l:L, '  • MÀU CHỮ ĐỒNG NHẤT cho cả thanh: xám `#a8a8a8` (cửa sổ đang')
+    call add(l:L, '     focus) — không còn đổi nhóm màu giữa chừng, nên path và 4')
+    call add(l:L, '     khối info cùng một màu.')
+    call add(l:L, '  • Cửa sổ KHÔNG focus dùng `StatusLineNC`: chữ `#6c6c6c` trên nền')
+    call add(l:L, '     `#1c1c1c` -> xám, không còn ánh xanh của `StatusLine`.')
     call add(l:L, '  • Nền statusline đổi theo mode: xanh đậm (Normal), cam (Insert),')
     call add(l:L, '     xanh lá (Replace) — tự động qua DynamicStatusLine')
     call add(l:L, '')
@@ -4126,7 +4130,7 @@ function! s:VimrcManualContent() abort
     call add(l:L, '')
 
     call add(l:L, '▶ AUTO-SAVE & AUTO-FEATURES')
-    call add(l:L, '  • Buffer auto-saves (if writable): TextChanged HOÃN 800ms,')
+    call add(l:L, '  • Buffer auto-saves (if writable): TextChanged HOÃN 1000ms,')
     call add(l:L, '     InsertLeave + VimLeavePre ghi NGAY (`g:autosave_delay`)')
     call add(l:L, '  • Unset filetype auto-defaults to "log" on read')
     call add(l:L, '  • `*.md` mang ft `md`, KHÔNG gọi `md#setup()` (7 phím leader')
@@ -4315,6 +4319,11 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     Panel WRAP (`wrap linebreak`): tên test/file dài thì xuống')
     call add(l:L, '     dòng, không bị cắt cụt ở mép panel.  Dòng active được đệm')
     call add(l:L, '     space tới textw-1 nên nền xanh phủ kín hàng mà không tràn.')
+    call add(l:L, '  • ĐƯỜNG DẪN dưới mỗi tên file: mặc định RÚT GỌN còn 5 thành phần')
+    call add(l:L, '     cuối (`…/trunk/verification/switch/tests/phase_soc`).')
+    call add(l:L, '     Muốn hiện ĐẦY ĐỦ (file + đường dẫn, `~` thay cho $HOME):')
+    call add(l:L, '       let g:winlist_full_path = 1     (mặc định 0)')
+    call add(l:L, '     Panel wrap nên đường dẫn dài tự xuống dòng, không bị cắt.')
     call add(l:L, '  • `wl`            Bật/tắt WinList (KHÔNG ảnh hưởng NERDTree)')
     call add(l:L, '  • `Ctrl-B`        Bật/tắt NERDTree. NERDTree mở ra ở NỬA DƯỚI')
     call add(l:L, '     của cột trái (WinList giữ nửa trên). WinList KHÔNG bị ảnh')
