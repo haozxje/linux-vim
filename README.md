@@ -160,7 +160,7 @@ cho buffer markdown đang mở.
 
 - Chỉ dùng **syntax tô màu** + fold + nowrap. Toàn bộ formatter của plugin
   **đã tắt** (`g:md_ftplugin_enable = 0`); muốn bật lại thì đặt biến đó = 1.
-- Màu: `` `code` `` xanh lá, `` `path/có/slash` `` xanh biển, dấu ` ``` ` **cam**,
+- Màu: `` `code` `` xanh lá, `` `path/có/slash` `` xanh biển, dấu fence (3 backtick) **cam**,
   dòng `| --- |` (và dòng `---  ---  ----` của bảng viết tay) xanh biển.
 - Trong fence có ghi ngôn ngữ (```` ```systemverilog ````, ```` ```verilog ````,
   ```` ```c ````…) thì nội dung được tô theo ngôn ngữ đó
@@ -290,3 +290,182 @@ let g:md_fenced_languages = [...] " ngôn ngữ được tô trong fence
   cập nhật mục tương ứng trong F1.
 - Khung header phải rộng đúng **78 ký tự**.
 - File trong `.vim/` dùng **LF**; `.vimrc`/`.gvimrc` có thể CRLF.
+
+---
+
+## 16. Cách viết file `.md` — toàn bộ quy tắc (file demo)
+
+Đây là **toàn bộ** quy ước viết note. Mọi file `.md` đều theo đúng khuôn này: mỗi
+cấp thụt thêm **4 space**, bảng viết trong **text fence**, code thật viết trong fence
+có ghi tên ngôn ngữ.
+
+### 16.1 Tên file và frontmatter
+
+**Quy tắc đặt tên** — pattern 3 phần, nối bằng dấu `-`:
+
+```
+<project_ID>-<IP_name>-<name of note>.md
+```
+
+| STT | Phần | Ý nghĩa | Ví dụ |
+|---|---|---|---|
+| 1. | `project_ID` | mã dự án, giữ chữ HOA | RLE1396, RL7129 |
+| 2. | `IP_name` | tên IP, giữ chữ HOA | IPSEC, SPI_SLV |
+| 3. | `name of note` | nội dung, tiếng Anh, nối bằng `_` | bug1_description |
+
+**Dấu cách bị cấm** ở mọi vị trí trong tên file:
+
+| SAI | ĐÚNG |
+|---|---|
+| RLE1396-IPSEC-bug1 description.md | RLE1396-IPSEC-bug1_description.md |
+| RLE1396-IPSEC-giải thích testcase.md | RLE1396-IPSEC-testcase_explain.md |
+
+**Frontmatter là tuỳ chọn.** Dùng khi cần khai báo `tags`, `aliases`, ngày tạo.
+Note cũ không có frontmatter thì **để nguyên, không thêm**.
+
+````markdown
+---
+tags: [IPSEC, testcase]
+created: 2026-11-20
+---
+````
+
+### 16.2 Contents và anchor
+
+Contents là **danh sách link anchor**, đặt **ngay sau frontmatter** và **trước dòng
+kẻ ngang**. Mục lớn bỏ số thứ tự ở chữ hiển thị, mục con giữ số.
+
+| STT | Heading | Anchor |
+|---|---|---|
+| 1. | `## 1. Tôi là ai` | `#1-tôi-là-ai` |
+| 2. | `### 1.1 Tóm tắt nhanh` | `#11-tóm-tắt-nhanh` |
+| 3. | `#### 1.1.1 Chi tiết` | `#111-chi-tiết` |
+
+**Quy tắc sinh anchor**: bỏ dấu chấm cuối số thứ tự, bỏ dấu câu, chuyển chữ thường,
+đổi dấu cách thành `-`, **giữ nguyên chữ có dấu tiếng Việt**. Dùng Markdown link
+`[text](#slug)` — **không** dùng wikilink kiểu hai ngoặc vuông.
+
+````markdown
+# Contents
+
+1. [Tên file và frontmatter](#1-tên-file-và-frontmatter)
+    - [1.1 Quy tắc đặt tên](#11-quy-tắc-đặt-tên)
+    - [1.2 Frontmatter](#12-frontmatter)
+````
+
+Mục con thụt **4 space**; nhảy bằng `<C-]>` hoặc double-click lên link.
+
+### 16.3 Thụt đầu dòng
+
+**Công thức**: `heading = (số dấu # − 1) × 4`, `nội dung = heading + 4`,
+`fence = heading + 8`.
+
+| STT | Cấp | Dấu | Thụt heading | Thụt nội dung |
+|---|---|---|---|---|
+| 1. | 1 | `#` | 0 space | không dùng |
+| 2. | 2 | `##` | 4 space | 8 space |
+| 3. | 3 | `###` | 8 space | 12 space |
+| 4. | 4 | `####` | 12 space | 16 space |
+
+**Ví dụ lồng bốn cấp** (nội dung cấp 3 thụt 12; heading cấp 4 thụt 16; fence dưới
+heading cấp 4 thụt 20):
+
+````text
+    ### 3.2.1 …            <- heading cấp 4, thụt 16
+        (nội dung 16)      <- nội dung = heading + 4
+            ```text        <- fence = heading + 8 = 20
+````
+
+### 16.4 Code block
+
+Fence và nội dung code thụt **thêm một cấp** so với nội dung thường:
+**fence = indent heading + 8**. Nội dung bên trong giữ nguyên **thụt gốc tương đối**
+(copy code từ editor vào là xong, không phải sửa lề).
+
+````text
+    ### 4.1 Fence và nội dung        <- heading thụt 8
+
+        Đoạn văn mô tả               <- nội dung thụt 12
+
+            ```systemverilog         <- fence thụt 16 (= 8 + 8)
+            constraint EIGHTBYTE_CMD {
+                (type3 == 0) -> src_dat_addr_base%8 == 0;
+            }
+            ```
+````
+
+| STT | Dòng | Indent | Giải thích |
+|---|---|---|---|
+| 1. | `### 4.1 …` | 8 | heading cấp 3 |
+| 2. | Đoạn văn mô tả | 12 | heading + 4 |
+| 3. | dòng fence `systemverilog` | 16 | fence = 8 + 8 |
+| 4. | `constraint … {` | 16 | code gốc 0 → 16 + 0 |
+| 5. | `(type3 == 0) …` | 20 | code gốc 4 → 16 + 4 |
+
+### 16.5 Bảng
+
+**a) Bảng trong code block** (kiểu dùng thường xuyên): mỗi hàng nội dung nằm trên
+**đúng một dòng** (không wrap), cột đầu là **STT** (`1.`, `2.`, `3.`), cột tự nới
+theo nội dung dài nhất, dòng phân cách chỉ gồm `-`:
+
+````text
+STT  Nội dung              Hệ quả
+---  --------------------  ------------------------------
+1.   Một hàng một dòng     đọc tốt trong gvim
+2.   Có cột STT            dễ đối chiếu khi trao đổi
+3.   Cột tự nới            không bao giờ wrap trong ô
+````
+
+**b) Bảng Markdown (`| … |`)** — quy tắc khác: mọi hàng **cùng độ dài**, dấu `|`
+**thẳng cột**, toàn bộ bảng **đi liền mạch** (không chèn dòng trống giữa các hàng).
+
+````text
+| STT | Tiêu chí | Kết quả |
+| --- | -------- | ------- |
+| 1.  | Độ dài hàng bằng nhau | OK |
+| 2.  | Dấu sổ thẳng cột | OK |
+````
+
+**c) Đo độ rộng tiếng Việt và chữ Hán** — tiếng Việt ở dạng **NFC** nên `len()` cho
+kết quả đúng, nhưng **chữ Hán rộng 2 cột** trong gvim nên dùng `len()` để pad sẽ làm
+lệch cột. Phải đo **độ rộng hiển thị**:
+
+````python
+import unicodedata
+
+def w(s):
+    return sum(2 if unicodedata.east_asian_width(c) in ('W', 'F') else 1 for c in s)
+````
+
+### 16.6 Dòng trống
+
+**Quy tắc**: sau mỗi dòng nội dung thêm **đúng một** dòng trống — không phân biệt
+khối, không phân biệt heading hay bảng. **Dòng cuối file không có dòng trống.**
+
+| STT | Vị trí | Dòng trống sau? |
+|---|---|---|
+| 1. | Dòng cuối file | KHÔNG |
+| 2. | Ngay sau frontmatter | Có 1 |
+| 3. | Trong code block | KHÔNG, giữ nguyên |
+| 4. | Trong bảng Markdown | KHÔNG, giữ nguyên |
+| 5. | Trong khối Contents | chỉ sau mục lớn `1.`, `2.` |
+
+### 16.7 Checklist trước khi báo xong
+
+| STT | Bước | Lệnh hoặc cách kiểm |
+|---|---|---|
+| 1. | Chạy script indent | phải đạt `loi: 0` |
+| 2. | Kiểm Contents khớp body | số mục con hai bên bằng nhau |
+| 3. | Kiểm cột STT | mọi bảng có separator phải có STT |
+| 4. | Kiểm cột thẳng hàng | đo bằng display width |
+| 5. | Kiểm wikilink | không trỏ tới file không tồn tại |
+| 6. | So nội dung với bản trước | không được mất từ nào |
+
+**Lỗi hay mắc**:
+
+| STT | Lỗi | Cách tránh |
+|---|---|---|
+| 1. | Fence ghi đè mất | khi sửa bảng, kiểm lại dòng fence đóng |
+| 2. | Gộp hàng gây thành hàng mới | không tự động hoá bảng có ô gãy |
+| 3. | Bảng dùng `\|` với separator ngắn | dùng dấu cách trong fence thay thế |
+| 4. | Báo xong khi chưa kiểm STT | chạy đủ sáu bước ở mục 7.1 |
