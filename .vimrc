@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.102                                                        ║
+" ║  Version  : 7.105                                                        ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -10,8 +10,8 @@
 
 if has('gui_running')
     autocmd GUIEnter * silent! call system("wmctrl -ir " . v:windowid . " -b add,maximized_vert,maximized_horz")
-    silent! let &guifont     = 'JetBrains Mono,Noto Sans Mono,DejaVu Sans Mono:h10'
-    silent! let &guifontwide = 'JetBrains Mono,Noto Sans Mono,DejaVu Sans Mono:h10'
+    silent! let &guifont     = 'JetBrains Mono,Noto Sans Mono,DejaVu Sans Mono:h5'
+    silent! let &guifontwide = 'JetBrains Mono,Noto Sans Mono,DejaVu Sans Mono:h5'
 endif
 
 let g:haoz_win_w = get(g:, 'haoz_win_w', 1600)
@@ -77,7 +77,7 @@ set hlsearch
 set encoding=utf-8
 set fileencoding=utf-8
 set termencoding=utf-8
-set guifont=JetBrains\ Mono,Noto\ Sans\ Mono,DejaVu\ Sans\ Mono:h10
+set guifont=JetBrains\ Mono,Noto\ Sans\ Mono,DejaVu\ Sans\ Mono:h5
 set ignorecase
 set smartcase
 set noautoread
@@ -4417,7 +4417,7 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • Font: `JetBrains Mono` -> `Noto Sans Mono` -> `DejaVu Sans Mono`')
     call add(l:L, '     (chuỗi dự phòng, khai báo ở .vimrc VÀ .gvimrc; thiếu font đầu')
     call add(l:L, '     GVim tự lùi font sau — Noto/DejaVu đủ dấu tiếng Việt)')
-    call add(l:L, '  • Đổi cỡ/thứ tự: sửa `guifont=…:h10` (`h9` nhỏ hơn, `h12` to).')
+    call add(l:L, '  • Đổi cỡ/thứ tự: sửa `guifont=…:h5` (`h6`/`h7` to hơn).')
     call add(l:L, '     Xem trước bằng hộp thoại: `:set guifont=*`  — OK là GVim in ra')
     call add(l:L, '     đúng chuỗi `guifont` để copy vào file cấu hình.')
     call add(l:L, '  • CÀI FONT ĐÓNG GÓI SẴN (~/.vim), chỉ cần 1 trong 2 nguồn:')
@@ -4438,7 +4438,7 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     bao giờ lặp lại — điều kiện !isdirectory() chặn).')
     call add(l:L, '     (Thực tế: .gvimrc cài xong rồi `set guifont` ngay sau, Vim truy')
     call add(l:L, '     vấn fontconfig tại thời điểm đó nên NHIỀU MÁY có font luôn ở')
-    call add(l:L, '     lần mở đầu; nếu chưa có thì `:set guifont=JetBrains Mono:h10`')
+    call add(l:L, '     lần mở đầu; nếu chưa có thì `:set guifont=JetBrains Mono:h5`')
     call add(l:L, '     lại trong phiên, hoặc mở lại 1 lần.)')
     call add(l:L, '')
     call add(l:L, '  • Kiểm tra: `fc-list | grep -i jetbrains`; nếu trống thì GVim vẫn')
