@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.83                                                         ║
+" ║  Version  : 7.85                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -142,13 +142,15 @@ function! s:IsPanelBuf(bufnr) abort
         \ || l:bt   ==# 'nofile'
 endfunction
 
-function! GuiTabLabel() abort
-    let l:buflist = tabpagebuflist(v:lnum)
-    let l:winnr   = tabpagewinnr(v:lnum)
-    let l:cur     = l:buflist[l:winnr - 1]
+let s:tablabel_cache = {}
+let s:tablabel_dirty = 1
 
-    let l:bufnr = l:cur
-    if s:IsPanelBuf(l:cur)
+function! s:BuildTabLabel(tnr) abort
+    let l:buflist = tabpagebuflist(a:tnr)
+    let l:winnr   = tabpagewinnr(a:tnr)
+    let l:cur     = get(l:buflist, l:winnr - 1, -1)
+    let l:bufnr   = l:cur
+    if l:bufnr != -1 && s:IsPanelBuf(l:bufnr)
         for l:bn in l:buflist
             if !s:IsPanelBuf(l:bn)
                 let l:bufnr = l:bn
@@ -156,13 +158,46 @@ function! GuiTabLabel() abort
             endif
         endfor
     endif
-
-    let l:fname   = bufname(l:bufnr)
-    let l:name    = l:fname ==# '' ? '[No Name]' : fnamemodify(l:fname, ':t')
-    let l:mod     = getbufvar(l:bufnr, '&modified')  ? ' [M]' : ''
-    let l:ro      = getbufvar(l:bufnr, '&readonly')  ? ' [RO]'  : ''
+    if l:bufnr == -1
+        return '[No Name]'
+    endif
+    let l:fname = bufname(l:bufnr)
+    let l:name  = l:fname ==# '' ? '[No Name]' : fnamemodify(l:fname, ':t')
+    let l:mod   = getbufvar(l:bufnr, '&modified') ? ' [M]' : ''
+    let l:ro    = getbufvar(l:bufnr, '&readonly') ? ' [RO]' : ''
     return l:name . l:mod . l:ro
 endfunction
+
+function! s:RebuildTabLabels() abort
+    let l:cache = {}
+    for l:t in range(1, tabpagenr('$'))
+        let l:cache[l:t] = s:BuildTabLabel(l:t)
+    endfor
+    let s:tablabel_cache = l:cache
+    let s:tablabel_dirty = 0
+endfunction
+
+function! s:TabLabelDirty() abort
+    let s:tablabel_dirty = 1
+endfunction
+
+function! s:UpdateCurrentTabLabel() abort
+    let l:t = tabpagenr()
+    let s:tablabel_cache[l:t] = s:BuildTabLabel(l:t)
+endfunction
+
+function! GuiTabLabel() abort
+    if s:tablabel_dirty
+        call s:RebuildTabLabels()
+    endif
+    return get(s:tablabel_cache, v:lnum, '')
+endfunction
+
+augroup haoz_tablabel
+    autocmd!
+    autocmd VimEnter,TabEnter,TabNew,TabClosed,WinEnter,BufEnter,BufAdd,BufDelete,BufWipeout,BufWritePost,BufFilePost,SessionLoadPost * call s:TabLabelDirty()
+    autocmd TextChanged,InsertLeave,BufWritePost * call s:UpdateCurrentTabLabel()
+augroup END
 
 function! s:FileChangedGuard() abort
     if &modified
@@ -1353,11 +1388,11 @@ autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 let g:winlist_min_width    = 15
 let g:winlist_max_width    = 50
 let g:winlist_padding      = 2
-let g:winlist_width        = 50
+let g:winlist_width        = 36
 
 let NERDTreeShowHidden     = 1
 let g:NERDTreeWinPos       = "left"
-let g:NERDTreeWinSize      = 50
+let g:NERDTreeWinSize      = 78
 
 let g:winlist_always       = 1
 
@@ -3916,6 +3951,9 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • Cả hai luôn hiện tên FILE THẬT, kể cả khi focus đang ở panel')
     call add(l:L, '     WinList/NERDTree — không còn hiện "__WindowList__"')
     call add(l:L, '  • Tab label: `GuiTabLabel()` → tên file + [M] + [RO]')
+    call add(l:L, '     CÓ CACHE: chỉ dựng lại khi có sự kiện tab/buffer/window; gõ')
+    call add(l:L, '     phím chỉ cập nhật tab hiện tại.  (Trước: tính lại MỌI tab ở')
+    call add(l:L, '     mỗi lần redraw -> mở nhiều tab là lag.)')
     call add(l:L, '  • Window title: `GuiTitle()` qua `titlestring`, dạng')
     call add(l:L, '     `<thư mục> — <file> [M] [RO] (tab/tổng) — GVIM`')
     call add(l:L, '  • Cả hai dùng chung `s:IsPanelBuf()` để bỏ qua buffer panel')
@@ -4048,6 +4086,10 @@ function! s:VimrcManualContent() abort
 
     call add(l:L, '▶ CLIPBOARD / EDITING')
     call add(l:L, '  • `Ctrl-C` / `Ctrl-V` / `Ctrl-X`  Copy/Paste/Cut via system clipboard "+')
+    call add(l:L, '     Normal: `C-c` = copy CẢ DÒNG (`"+yy`), `C-v` = paste (`"+p`),')
+    call add(l:L, '     `C-x` = cut dòng.  Visual: copy/paste/cut VÙNG CHỌN.  Insert:')
+    call add(l:L, '     `C-v` = paste; `C-c` KHÔNG map (thoát Insert như Vim gốc).')
+    call add(l:L, '     Vim thiếu +clipboard -> dùng xclip/xsel (cần cài trên máy).')
     call add(l:L, '  • `Ctrl-Z`   Undo (Normal/Insert/Visual)')
     call add(l:L, '  • `Ctrl-U`   Toggle case of word (Normal) / selection (Visual)')
     call add(l:L, '  • `Ctrl-A`   Select whole buffer')
@@ -4115,6 +4157,8 @@ function! s:VimrcManualContent() abort
     call add(l:L, '')
 
     call add(l:L, '▶ SIDE PANEL — WinList (always on) + NERDTree (on demand)')
+    call add(l:L, '  • Độ rộng: WinList `g:winlist_width = 36` (min 15/max 50, luôn')
+    call add(l:L, '     <= nửa màn hình); NERDTree `g:NERDTreeWinSize = 78`.')
     call add(l:L, '  • WinList         LUÔN hiển thị ở mọi tab (cột trái, full height)')
     call add(l:L, '     Panel WRAP (`wrap linebreak`): tên test/file dài thì xuống')
     call add(l:L, '     dòng, không bị cắt cụt ở mép panel.  Dòng active được đệm')
