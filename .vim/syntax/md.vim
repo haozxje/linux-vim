@@ -128,12 +128,14 @@ syn match mdNumListItem3   "^\s\{8,}[0-9]\+\.\ze\s"
 syn match mdTableBorder    "^\s*|" contained
 syn match mdTableBorder    "\s|" contained
 syn match mdTableBorder    "\s|\s*$" contained
-syn match mdTableRow       "^\s*|.*|\s*$" contains=mdTableBorder,mdCode,mdCodePath,mdItalic,mdBold,mdStrike,mdLink,mdUrl,mdImg
-syn match mdTableHead      "^\s*|[-: |]*|\s*$"
+syn match mdTableRow       "^\s*|.*|\s*$" containedin=mdPreCode contains=mdTableBorder,mdCode,mdCodePath,mdItalic,mdBold,mdStrike,mdLink,mdUrl,mdImg
+syn match mdTableHead      "^\s*|[-: |]*|\s*$" containedin=mdPreCode
 " Dòng phân cách của BẢNG VIẾT TAY (cột căn bằng SPACE, KHÔNG có dấu '|'):
 "   ---  ---  ------------  ----------  -----
 " Phải có >= 2 NHÓM gạch nên KHÔNG đụng tới đường kẻ ngang '---' đơn lẻ.
-syn match mdTableHead      /^\s*-\{2,}\%([ \t]\+-\{2,}\)\+\s*$/
+" 'containedin=mdPreCode' để khớp được CẢ KHI nằm trong khối ``` … ```
+" (region chung không khai báo contains= nên không phải lúc nào cũng cho khớp).
+syn match mdTableHead      /^\s*-\{2,}\%([ \t]\+-\{2,}\)\+\s*$/ containedin=mdPreCode
 " (dùng /…/ cho khỏi phải escape 2 lần như các dòng trên)
 syn match mdSeparator      /^\s*===\+\s*$/
 syn match mdSeparator      /^\s*---\+\s*$/
