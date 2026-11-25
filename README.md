@@ -110,6 +110,10 @@ một số phím tắt riêng của GVim sẽ không có.
   (dấu `>` = cửa sổ đang active), có kích thước mặc định **36 cột**.
 - **NERDTree** mở ở nửa dưới cột trái; khi NERDTree mở, cả cột rộng **78 cột**
   (chừa ≥ 20 cột cho cửa sổ code).
+- Dưới mỗi tên file có dòng **đường dẫn**. Mặc định rút gọn còn 5 thành phần cuối
+  (`…/trunk/verification/switch/tests/phase_soc`). Muốn hiện **đầy đủ** (cả tên file,
+  `~` thay cho `$HOME`): `let g:winlist_full_path = 1` (mặc định `0`). Panel có
+  wrap nên đường dẫn dài tự xuống dòng, không bị cắt.
 
 | Phím | Việc |
 |---|---|
@@ -177,7 +181,7 @@ cho buffer markdown đang mở.
 ## 9. Statusline
 
 ```
-~/.vimrc                                    [CL12:TL431][4sp][md][V7.106]
+~/.vimrc                                    [CL12:TL431][4sp][md][V7.110]
 ```
 
 | Khối | Nghĩa |
@@ -187,7 +191,12 @@ cho buffer markdown đang mở.
 | `[<filetype>]` | filetype/syntax (`[none]` nếu buffer rỗng) |
 | `[Vx]` | version của `.vimrc`, đọc từ header lúc khởi động |
 
-Nền statusline đổi màu theo mode: xanh đậm (Normal), cam (Insert), xanh lá (Replace).
+Màu chữ **đồng nhất** cho cả thanh: xám `#a8a8a8` (không đổi nhóm màu giữa
+chừng, nên path và 4 khối info cùng màu). Nền đổi theo mode: xám đậm `#1f1f1f`
+(Normal), cam `#661900` (Insert), xanh lá `#006619` (Replace). Cửa sổ **không
+focus** dùng `StatusLineNC`: chữ xám `#6c6c6c` trên nền `#1c1c1c` (mờ hơn cửa
+sổ đang focus). Màu được đặt trong `s:StatusLineColors()` và gắn với autocmd
+`ColorScheme`, nên `colors/haoz.vim` (đặt `StatusLine` màu xanh) không ghi đè.
 
 ---
 
@@ -195,7 +204,7 @@ Nền statusline đổi màu theo mode: xanh đậm (Normal), cam (Insert), xanh
 
 | Tính năng | Mặc định | Tắt bằng |
 |---|---|---|
-| **Auto-save** (ghi sau 2 s ngừng gõ; `InsertLeave`/thoát ghi ngay) | bật | `let g:autosave_delay = 0`* |
+| **Auto-save** (ghi sau **1 s** ngừng gõ; `InsertLeave`/thoát ghi ngay; hoạt động cả khi đang trong Insert) | bật | `let g:autosave_delay = 0`* |
 | **Auto-detect indent** kiểu VSCode (quét ≤ 400 dòng, đặt `shiftwidth`/`expandtab` theo file) | bật | `let g:haoz_autoindent = 0` |
 | **Tự nạp lại file** khi file bị ghi từ ngoài (chỉ khi buffer không có sửa chưa ghi) | bật | `let g:haoz_checktime_safe = 0` |
 | **Auto-format markdown** | **tắt** | bật: `let g:md_autoformat = 1` |
@@ -257,7 +266,7 @@ let g:winlist_width      = 36     " bề ngang panel WinList
 let g:NERDTreeWinSize    = 78     " bề ngang cột trái khi NERDTree mở
 let g:haoz_win_w         = 1600   " kích thước khi bấm F11 (thu nhỏ)
 let g:haoz_win_h         = 900
-let g:autosave_delay     = 2000   " ms
+let g:autosave_delay     = 1000   " ms
 let g:haoz_autoindent    = 0      " tắt auto-detect indent
 let g:haoz_checktime_safe= 0      " tắt tự nạp lại file
 let g:md_autoformat      = 1      " bật lại auto-format markdown
