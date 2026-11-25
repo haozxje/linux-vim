@@ -181,7 +181,7 @@ cho buffer markdown đang mở.
 ## 9. Statusline
 
 ```
-~/.vimrc                                    [CL12:TL431][4sp][md][V7.110]
+~/.vimrc                                    [CL12:TL431][4sp][md][V7.113]
 ```
 
 | Khối | Nghĩa |
@@ -191,12 +191,17 @@ cho buffer markdown đang mở.
 | `[<filetype>]` | filetype/syntax (`[none]` nếu buffer rỗng) |
 | `[Vx]` | version của `.vimrc`, đọc từ header lúc khởi động |
 
-Màu chữ **đồng nhất** cho cả thanh: xám `#a8a8a8` (không đổi nhóm màu giữa
-chừng, nên path và 4 khối info cùng màu). Nền đổi theo mode: xám đậm `#1f1f1f`
-(Normal), cam `#661900` (Insert), xanh lá `#006619` (Replace). Cửa sổ **không
-focus** dùng `StatusLineNC`: chữ xám `#6c6c6c` trên nền `#1c1c1c` (mờ hơn cửa
-sổ đang focus). Màu được đặt trong `s:StatusLineColors()` và gắn với autocmd
-`ColorScheme`, nên `colors/haoz.vim` (đặt `StatusLine` màu xanh) không ghi đè.
+Cửa sổ **đang focus** (`StatusLine`): nền `#001933` — đúng nền statusline của
+panel WinList (`WinListSLLabel`), chữ `#00ffff` — đúng màu `CursorLineNr` (số
+hàng của dòng con trỏ đang đứng). Cửa sổ **không focus**
+(`StatusLineNC`): chữ xám `#6c6c6c` trên nền `#1c1c1c` — mờ hẳn, nhìn là biết
+cửa sổ nào đang làm việc.
+
+Nền đổi theo mode: `#001933` (Normal), cam `#661900` (Insert), xanh lá
+`#006619` (Replace); ở Insert/Replace chữ sáng lên `#a8a8a8`
+(`s:haoz_sl_modefg`) cho đủ tương phản. Màu được đặt trong
+`s:StatusLineColors()` và gắn với autocmd `ColorScheme`, nên `colors/haoz.vim`
+(đặt `StatusLine`/`StatusLineNC` màu xanh) không ghi đè được.
 
 ---
 
