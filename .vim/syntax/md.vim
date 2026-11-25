@@ -88,7 +88,12 @@ syn match mdHeaderId       /{#[^}]\+}/ contained
 syn region mdBold   start="\*\*\%(\S\)\@="    end="\%(\S\)\@<=\*\*\|^\s*\n"    keepend contains=mdCode,mdCodePath,mdItalic,mdLink,mdUrl,mdImg,mdStrike
 syn region mdBold   start="__\%(\S\)\@="      end="\%(\S\)\@<=__\|^\s*\n"      keepend contains=mdCode,mdCodePath,mdItalic,mdLink,mdUrl,mdImg,mdStrike
 syn region mdItalic start="\*\%([^ \t*]\)\@=" end="\%([^ \t*]\)\@<=\*\|^\s*\n" keepend contains=mdCode,mdCodePath,mdLink,mdUrl,mdImg
-syn region mdItalic start="_\%([^ \t_]\)\@="  end="\%([^ \t_]\)\@<=_\|^\s*\n"  keepend contains=mdCode,mdCodePath,mdLink,mdUrl,mdImg
+" NGHIÊNG bằng '_': CHỈ nhận khi '_' đứng NGOÀI chữ, nếu không thì tên biến
+" kiểu pkt_len / dis_espc_gcm_len_any bị hiểu là mở italic -> phần còn lại của
+" dòng (và cả khối tới dòng trống) bị tô màu sai.
+"   mở  : '_' KHÔNG đứng sau ký tự chữ, và sau nó không phải space/'_'
+"   đóng: '_' KHÔNG đứng sau space, và sau nó không phải ký tự chữ
+syn region mdItalic start="\%(\k\)\@<!_\%([ \t_]\)\@!" end="\%([ \t]\)\@<!_\%(\k\)\@!\|^\s*\n" keepend contains=mdCode,mdCodePath,mdLink,mdUrl,mdImg
 syn region mdStrike start="\~\~\%(\S\)\@="    end="\%(\S\)\@<=\~\~\|^\s*\n"    keepend contains=mdCode,mdCodePath,mdLink,mdUrl,mdImg
 
 " TIÊU ĐỀ: cho phép THỤT ĐẦU DÒNG **KHÔNG GIỚI HẠN** (`^\s*`).
