@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.96                                                         ║
+" ║  Version  : 7.97                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -176,11 +176,11 @@ augroup haoz_autoindent
 augroup END
 
 function! s:HaozIndentLineRefresh() abort
-    if &filetype ==# 'md' || &filetype ==# 'markdown'
-        return
-    endif
     if exists(':IndentLinesReset') == 2
         silent! IndentLinesReset
+    endif
+    if &filetype ==# 'md' || &filetype ==# 'markdown'
+        setlocal conceallevel=2 concealcursor=nvic
     endif
 endfunction
 
@@ -436,7 +436,7 @@ let g:md_fenced_languages = [
       \ ]
 
 if has('conceal')
-  au FileType md setlocal conceallevel=0 concealcursor=nc
+  au FileType md setlocal conceallevel=2 concealcursor=nvic
 endif
 
 highlight Normal      ctermbg=black guibg=#000000
@@ -4167,7 +4167,8 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • INDENTLINE (vạch `┆`): plugin tự TẮT khi FileType chạy lại (file')
     call add(l:L, '     reload/`:e`) mà không tự bật lại -> vạch biến mất.  Đã thêm')
     call add(l:L, '     `s:HaozIndentLineRefresh()` (timer 0ms sau BufReadPost/FileType/')
-    call add(l:L, '     BufWinEnter) gọi `:IndentLinesReset` — trừ buffer md.')
+    call add(l:L, '     BufWinEnter) gọi `:IndentLinesReset` cho MỌI buffer, kể cả md')
+    call add(l:L, '     (md dùng `conceallevel=2 concealcursor=nvic` như các file khác)')
     call add(l:L, '  • Đo startup: `gvim --startuptime /tmp/st.log` rồi xem /tmp/st.log')
     call add(l:L, '')
 
