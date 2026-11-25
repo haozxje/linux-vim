@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.86                                                         ║
+" ║  Version  : 7.88                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -1467,6 +1467,14 @@ function! s:PanelWidth() abort
     return l:w
 endfunction
 
+function! s:ColumnWidth() abort
+    if NERDTreeIsOpen()
+        return min([max([20, get(g:, 'NERDTreeWinSize', 78)]),
+                    \ max([20, &columns - 20])])
+    endif
+    return s:PanelWidth()
+endfunction
+
 function! s:CurrentContentBuf() abort
     if !WinListIsSpecial()
         return bufnr('%')
@@ -1637,9 +1645,13 @@ endfunction
 function! SyncNERDTreeWidth() abort
     for l:i in range(1, winnr('$'))
         if WinListIsNERDTree(winbufnr(l:i))
+            let l:want = s:ColumnWidth()
+            if winwidth(l:i) == l:want
+                return
+            endif
             let l:cur = winnr()
             execute 'noautocmd ' . l:i . 'wincmd w'
-            execute 'vertical resize ' . s:PanelWidth()
+            execute 'vertical resize ' . l:want
             execute 'noautocmd ' . l:cur . 'wincmd w'
             return
         endif
@@ -1650,12 +1662,13 @@ function! WinListFixWidth() abort
     if g:netrw_expanding  | return | endif
     if !WinListIsOpen()   | return | endif
     let l:wnr = bufwinnr(WinListBufName())
-    if winwidth(l:wnr) == s:PanelWidth() | return | endif
+    let l:want = s:ColumnWidth()
+    if winwidth(l:wnr) == l:want | return | endif
 
     let l:cur = winnr()
     silent! call WinListLockSplitWidths()
     execute 'noautocmd ' . l:wnr . 'wincmd w'
-    execute 'vertical resize ' . s:PanelWidth()
+    execute 'vertical resize ' . l:want
     execute 'noautocmd ' . l:cur . 'wincmd w'
     silent! call WinListUnlockSplitWidths()
     silent! call SyncNERDTreeWidth()
@@ -2080,7 +2093,7 @@ function! PanelOpenWithNERDTree() abort
                 \ ? fnamemodify(expand('%:p'), ':h')
                 \ : getcwd()
             execute 'NERDTree ' . fnameescape(l:cwd)
-            execute 'vertical resize ' . s:PanelWidth()
+            execute 'vertical resize ' . s:ColumnWidth()
             setlocal winfixwidth
         endif
 
@@ -2098,7 +2111,7 @@ function! PanelOpenWithNERDTree() abort
             execute 'noautocmd ' . l:nt . 'wincmd w'
             execute 'aboveleft ' . l:half . 'split ' . WinListBufName()
             call s:SetupWinListWindow()
-            execute 'vertical resize ' . s:PanelWidth()
+            execute 'vertical resize ' . s:ColumnWidth()
 
             let l:nt2 = -1
             for l:i in range(1, winnr('$'))
@@ -4166,7 +4179,10 @@ function! s:VimrcManualContent() abort
 
     call add(l:L, '▶ SIDE PANEL — WinList (always on) + NERDTree (on demand)')
     call add(l:L, '  • Độ rộng: WinList `g:winlist_width = 36` (min 15/max 50, luôn')
-    call add(l:L, '     <= nửa màn hình); NERDTree `g:NERDTreeWinSize = 78`.')
+    call add(l:L, '     <= nửa màn hình).  `s:ColumnWidth()`: NERDTree MỞ -> cả cột')
+    call add(l:L, '     trái rộng `g:NERDTreeWinSize = 78` (WinList cũng 78 vì chia')
+    call add(l:L, '     chung cột); NERDTree ĐÓNG -> về 36.  Luôn chừa >= 20 cột cho')
+    call add(l:L, '     cửa sổ code nên cửa sổ hẹp sẽ thấy nhỏ hơn 78.')
     call add(l:L, '  • WinList         LUÔN hiển thị ở mọi tab (cột trái, full height)')
     call add(l:L, '     Dòng tiêu đề `=== Tab N  [x split] ===...` được ĐỆM `=` cho')
     call add(l:L, '     vừa ĐÚNG bề ngang panel; Tab-ID (trước đây nối sau dấu `§`)')
