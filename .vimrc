@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.109                                                        ║
+" ║  Version  : 7.110                                                        ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -645,12 +645,20 @@ function! StatusFiletype() abort
     return '[' . l:ft . ']'
 endfunction
 
-highlight StatusLine   guifg=#a8a8a8 guibg=#001933
-highlight StatusLineNC guifg=#6c6c6c guibg=#1c1c1c
-highlight link StatusLinePos StatusLine
+function! s:StatusLineColors() abort
+    silent! highlight StatusLine   guifg=#a8a8a8 guibg=#1f1f1f
+    silent! highlight StatusLineNC guifg=#6c6c6c guibg=#1c1c1c
+    silent! highlight link StatusLinePos StatusLine
+endfunction
+call s:StatusLineColors()
+
+augroup haoz_statusline_colors
+    autocmd!
+    autocmd ColorScheme * call s:StatusLineColors()
+augroup END
 
 function! StatusLineSetNormal() abort
-    silent! highlight StatusLine guifg=#a8a8a8 guibg=#001933
+    call s:StatusLineColors()
 endfunction
 
 function! StatusLineSetInsert() abort
@@ -4083,9 +4091,11 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     focus) — không còn đổi nhóm màu giữa chừng, nên path và 4')
     call add(l:L, '     khối info cùng một màu.')
     call add(l:L, '  • Cửa sổ KHÔNG focus dùng `StatusLineNC`: chữ `#6c6c6c` trên nền')
-    call add(l:L, '     `#1c1c1c` -> xám, không còn ánh xanh của `StatusLine`.')
-    call add(l:L, '  • Nền statusline đổi theo mode: xanh đậm (Normal), cam (Insert),')
-    call add(l:L, '     xanh lá (Replace) — tự động qua DynamicStatusLine')
+    call add(l:L, '     `#1c1c1c` -> xám (mờ hơn cửa sổ đang focus).')
+    call add(l:L, '  • `s:StatusLineColors()` + autocmd `ColorScheme` -> màu xám KHÔNG')
+    call add(l:L, '     bị `colors/haoz.vim` (đặt StatusLine = xanh) ghi đè lại.')
+    call add(l:L, '  • Nền statusline đổi theo mode: xám đậm `#1f1f1f` (Normal),')
+    call add(l:L, '     cam `#661900` (Insert), xanh lá `#006619` (Replace)')
     call add(l:L, '')
 
     call add(l:L, '▶ TAB LABEL & WINDOW TITLE')
