@@ -181,7 +181,7 @@ cho buffer markdown đang mở.
 ## 9. Statusline
 
 ```
-~/.vimrc                                    [CL12:TL431][4sp][md][V7.113]
+~/.vimrc                                    [CL12:TL431][4sp][md][V7.116]
 ```
 
 | Khối | Nghĩa |
@@ -209,13 +209,23 @@ Nền đổi theo mode: `#001933` (Normal), cam `#661900` (Insert), xanh lá
 
 | Tính năng | Mặc định | Tắt bằng |
 |---|---|---|
-| **Auto-save** (ghi sau **1 s** ngừng gõ; `InsertLeave`/thoát ghi ngay; hoạt động cả khi đang trong Insert) | bật | `let g:autosave_delay = 0`* |
+| **Auto-save** (ghi sau **1 s** ngừng sửa ở Normal; **nhấn `Esc` thoát Insert là ghi ngay** (`InsertLeavePre`), rời buffer / rời cửa sổ / rời tab / mất focus / thoát Vim cũng ghi **ngay** — kể cả khi đang `diffsplit`/`gdiff`; trong lúc đang gõ ở Insert thì **chưa** ghi) | bật | `let g:autosave_enable = 0`* |
 | **Auto-detect indent** kiểu VSCode (quét ≤ 400 dòng, đặt `shiftwidth`/`expandtab` theo file) | bật | `let g:haoz_autoindent = 0` |
 | **Tự nạp lại file** khi file bị ghi từ ngoài (chỉ khi buffer không có sửa chưa ghi) | bật | `let g:haoz_checktime_safe = 0` |
 | **Auto-format markdown** | **tắt** | bật: `let g:md_autoformat = 1` |
 | `autoread` của Vim | **tắt** | (để tránh reload liên tục trên NFS) |
 
-\* đặt `0` chỉ giãn nhịp; vẫn ghi khi rời Insert/thoát Vim.
+\* `g:autosave_enable = 0` tắt hẳn auto-save; `g:autosave_delay` là số ms chờ
+sau thay đổi cuối (mặc định `1000`; đặt `0` cũng tắt). Tắt rồi thì chỉ ghi khi
+bạn tự `:w`.
+
+**Chế độ diff (`:diffsplit`, `gdiff`, `vim -d`)**: bạn sửa bên trái rồi nhảy
+sang bên phải/cửa sổ khác — file vẫn được ghi ngay, **không cần focus lại tab
+đã sửa**. Lý do: mọi event rời (`BufLeave`, `WinLeave`, `TabLeave`,
+`BufWinLeave`) đều truyền buffer vừa rời vào `s:AutoSaveNow(<abuf>)`, và timer
+có fallback `s:AutoSaveWrite()`: nếu buffer đó không còn là buffer hiện tại thì
+nó tự `noautocmd` nhảy sang cửa sổ/tab đang hiển thị buffer (kể cả tab khác),
+ghi, rồi trả lại đúng tab/cửa sổ cũ.
 
 ---
 
