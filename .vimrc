@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.113                                                        ║
+" ║  Version  : 7.116                                                        ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -909,17 +909,79 @@ augroup autosave
     autocmd!
     autocmd BufRead      * if &filetype == "" | setlocal ft=log | endif
     autocmd TextChanged  * call s:AutoSaveSchedule()
+    autocmd InsertLeavePre * call s:AutoSaveNow()
     autocmd InsertLeave  * call s:AutoSaveNow()
-    autocmd BufLeave     * call s:AutoSaveNow()
+    autocmd BufLeave     * call s:AutoSaveNow(expand('<abuf>'))
+    autocmd WinLeave     * call s:AutoSaveNow(expand('<abuf>'))
+    autocmd TabLeave     * call s:AutoSaveNow(expand('<abuf>'))
+    autocmd BufWinLeave  * call s:AutoSaveNow(expand('<abuf>'))
     autocmd FocusLost    * call s:AutoSaveNow()
     autocmd VimLeavePre  * call s:AutoSaveNow()
+    autocmd CursorHold,CursorHoldI * call s:AutoSaveNow()
 augroup END
 
 let s:autosave_timer = -1
+let s:autosave_buf   = -1
 
-function! s:AutoSaveWritable() abort
-    return &modified && !&readonly && &modifiable
-        \ && &buftype ==# '' && bufname('%') !=# ''
+function! s:AutoSaveEnabled() abort
+    return get(g:, 'autosave_enable', 1)
+        \ && get(g:, 'autosave_delay', 1000) > 0
+endfunction
+
+function! s:AutoSaveBufNr(...) abort
+    if a:0 && type(a:1) == type(0)
+        return a:1 > 0 ? a:1 : bufnr('%')
+    endif
+    let l:nr = a:0 ? str2nr(a:1) : 0
+    return l:nr > 0 ? l:nr : bufnr('%')
+endfunction
+
+function! s:AutoSaveWritable(...) abort
+    let l:nr = a:0 ? s:AutoSaveBufNr(a:1) : bufnr('%')
+    return getbufvar(l:nr, '&modified')
+        \ && !getbufvar(l:nr, '&readonly')
+        \ && getbufvar(l:nr, '&modifiable')
+        \ && getbufvar(l:nr, '&buftype') ==# ''
+        \ && bufname(l:nr) !=# ''
+endfunction
+
+function! s:AutoSaveWrite(nr) abort
+    if a:nr == bufnr('%')
+        silent! write
+        return
+    endif
+
+    let l:curtab = tabpagenr()
+    let l:curwin = winnr()
+    try
+        let l:w = bufwinnr(a:nr)
+        if l:w != -1
+            execute 'noautocmd ' . l:w . 'wincmd w'
+            silent! write
+            return
+        endif
+
+        for l:t in range(1, tabpagenr('$'))
+            if l:t == l:curtab
+                continue
+            endif
+            execute 'noautocmd tabnext ' . l:t
+            let l:w = bufwinnr(a:nr)
+            if l:w != -1
+                execute 'noautocmd ' . l:w . 'wincmd w'
+                silent! write
+                break
+            endif
+        endfor
+    catch
+    finally
+        if tabpagenr() != l:curtab
+            execute 'noautocmd tabnext ' . l:curtab
+        endif
+        if winnr() != l:curwin
+            execute 'noautocmd ' . l:curwin . 'wincmd w'
+        endif
+    endtry
 endfunction
 
 function! s:AutoSaveNow(...) abort
@@ -927,21 +989,29 @@ function! s:AutoSaveNow(...) abort
         call timer_stop(s:autosave_timer)
         let s:autosave_timer = -1
     endif
-    if !s:AutoSaveWritable()
+    if !s:AutoSaveEnabled()
         return
     endif
-    silent! write
+    let l:nr = a:0 ? s:AutoSaveBufNr(a:1) : bufnr('%')
+    if !s:AutoSaveWritable(l:nr)
+        return
+    endif
+    call s:AutoSaveWrite(l:nr)
+    if l:nr == s:autosave_buf
+        let s:autosave_buf = -1
+    endif
 endfunction
 
 function! s:AutoSaveSchedule() abort
-    if !s:AutoSaveWritable()
+    if !s:AutoSaveEnabled() || !s:AutoSaveWritable(bufnr('%'))
         return
     endif
+    let s:autosave_buf = bufnr('%')
     if s:autosave_timer != -1
         call timer_stop(s:autosave_timer)
     endif
     let s:autosave_timer = timer_start(get(g:, 'autosave_delay', 1000),
-        \ {-> s:AutoSaveNow()})
+        \ {-> s:AutoSaveNow(s:autosave_buf)})
 endfunction
 
 noremap <C-n> :tabnew<CR>
@@ -4146,8 +4216,20 @@ function! s:VimrcManualContent() abort
     call add(l:L, '')
 
     call add(l:L, '▶ AUTO-SAVE & AUTO-FEATURES')
-    call add(l:L, '  • Buffer auto-saves (if writable): TextChanged HOÃN 1000ms,')
-    call add(l:L, '     InsertLeave + VimLeavePre ghi NGAY (`g:autosave_delay`)')
+    call add(l:L, '  • Buffer auto-saves (if writable): TextChanged HOÃN 1000ms')
+    call add(l:L, '     (`g:autosave_delay`, sửa tiếp thì timer reset); InsertLeavePre,')
+    call add(l:L, '     InsertLeave, BufLeave, WinLeave, TabLeave, BufWinLeave,')
+    call add(l:L, '     FocusLost, VimLeavePre, CursorHold(I) ghi NGAY buffer VỪA rời.')
+    call add(l:L, '     -> Nhấn Esc là file trên đĩa đã đổi NGAY, không chờ 1 giây.')
+    call add(l:L, '  • DIFF/GDIFF: mỗi sự kiện rời cửa sổ/tab đều ghi buffer đang sửa')
+    call add(l:L, '     (`<abuf>` được truyền vào), và timer còn fallback: nếu buffer')
+    call add(l:L, '     đó không còn là buffer hiện tại thì `s:AutoSaveWrite()` tự')
+    call add(l:L, '     nhảy sang cửa sổ/tab đang hiện nó (`noautocmd`), ghi, rồi')
+    call add(l:L, '     quay lại chỗ cũ -> không cần focus tab đã sửa mới chịu ghi.')
+    call add(l:L, '  • Đang gõ trong Insert CHƯA ghi (không có TextChangedI) -> thoát')
+    call add(l:L, '     Insert là ghi. Điều kiện: `&modified`, không readonly,')
+    call add(l:L, '     modifiable, buftype rỗng, có tên file (WinList/NERDTree/help')
+    call add(l:L, '     không bị ghi). Tắt hẳn: `let g:autosave_enable = 0`')
     call add(l:L, '  • Unset filetype auto-defaults to "log" on read')
     call add(l:L, '  • `*.md` mang ft `md`, KHÔNG gọi `md#setup()` (7 phím leader')
     call add(l:L, '     `\= \- \l \x \t \z \p` của plugin đã bỏ; chỉ giữ fold + lệnh)')
@@ -4211,8 +4293,8 @@ function! s:VimrcManualContent() abort
     call add(l:L, '')
 
     call add(l:L, '▶ PERFORMANCE (các chỗ đã tối ưu)')
-    call add(l:L, '  • AUTO-SAVE: TextChanged chỉ HẸN ghi sau 800ms')
-    call add(l:L, '     (`let g:autosave_delay = 1500`); InsertLeave/VimLeavePre ghi')
+    call add(l:L, '  • AUTO-SAVE: TextChanged chỉ HẸN ghi sau 1000ms')
+    call add(l:L, '     (`let g:autosave_delay = 1500`); các event rời buffer/tab ghi')
     call add(l:L, '     ngay -> không còn 1 lần ghi đĩa cho MỖI phím sửa')
     call add(l:L, '  • WINLIST: mọi event đều đi qua `WinListRefreshSoon()` — gộp')
     call add(l:L, '     nhiều event liền nhau thành 1 lần dựng (40ms) + 1 lần dựng bù')
