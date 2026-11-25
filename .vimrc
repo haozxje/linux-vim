@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.89                                                         ║
+" ║  Version  : 7.92                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -12,8 +12,41 @@ if has('gui_running')
     autocmd GUIEnter * silent! call system("wmctrl -ir " . v:windowid . " -b add,maximized_vert,maximized_horz")
 endif
 
+let g:haoz_win_w = get(g:, 'haoz_win_w', 1600)
+let g:haoz_win_h = get(g:, 'haoz_win_h', 900)
+let g:haoz_window_maximized = 1
+
+function! s:HaozScreenSize() abort
+    for l:cmd in ['xrandr --current 2>/dev/null | grep -m1 "\*"',
+                \ 'xdpyinfo 2>/dev/null | grep -m1 dimensions']
+        let l:m = matchlist(system(l:cmd), '\(\d\+\)x\(\d\+\)')
+        if !empty(l:m)
+            return [str2nr(l:m[1]), str2nr(l:m[2])]
+        endif
+    endfor
+    return [1920, 1080]
+endfunction
+
+function! HaozToggleFullscreen() abort
+    if get(g:, 'haoz_window_maximized', 1)
+        silent! call system('wmctrl -ir ' . v:windowid
+            \ . ' -b remove,maximized_vert,maximized_horz')
+        sleep 30m
+        let [l:sw, l:sh] = s:HaozScreenSize()
+        let l:x = max([0, (l:sw - g:haoz_win_w) / 2])
+        let l:y = max([0, (l:sh - g:haoz_win_h) / 2])
+        silent! call system('wmctrl -ir ' . v:windowid
+            \ . printf(' -e 0,%d,%d,%d,%d', l:x, l:y, g:haoz_win_w, g:haoz_win_h))
+        let g:haoz_window_maximized = 0
+    else
+        silent! call system('wmctrl -ir ' . v:windowid
+            \ . ' -b add,maximized_vert,maximized_horz')
+        let g:haoz_window_maximized = 1
+    endif
+endfunction
+
 if has('gui_running')
-    map <silent> <F11> :silent! call system("wmctrl -ir " . v:windowid . " -b toggle,maximized_vert,maximized_horz")<CR>
+    map <silent> <F11> :call HaozToggleFullscreen()<CR>
 endif
 
 set hlsearch
@@ -118,6 +151,21 @@ endfunction
 augroup haoz_autoindent
     autocmd!
     autocmd FileType * call s:HaozAutoIndent()
+augroup END
+
+function! s:HaozIndentLineRefresh() abort
+    if &filetype ==# 'md' || &filetype ==# 'markdown'
+        return
+    endif
+    if exists(':IndentLinesReset') == 2
+        silent! IndentLinesReset
+    endif
+endfunction
+
+augroup haoz_indentline_refresh
+    autocmd!
+    autocmd BufReadPost,FileType,BufWinEnter *
+        \ call timer_start(0, {-> s:HaozIndentLineRefresh()})
 augroup END
 set nowrap
 set linebreak
@@ -4086,6 +4134,10 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • STATUSLINE `[Nsp]`: đang Insert thì quét tối đa 1 lần/giây')
     call add(l:L, '     (trước: quét 400 dòng cho mỗi phím); rời Insert quét lại ngay')
     call add(l:L, '  • Snapshot layout cho Ctrl-Shift-T vẫn chạy, tự chặn 1 lần/200ms')
+    call add(l:L, '  • INDENTLINE (vạch `┆`): plugin tự TẮT khi FileType chạy lại (file')
+    call add(l:L, '     reload/`:e`) mà không tự bật lại -> vạch biến mất.  Đã thêm')
+    call add(l:L, '     `s:HaozIndentLineRefresh()` (timer 0ms sau BufReadPost/FileType/')
+    call add(l:L, '     BufWinEnter) gọi `:IndentLinesReset` — trừ buffer md.')
     call add(l:L, '  • Đo startup: `gvim --startuptime /tmp/st.log` rồi xem /tmp/st.log')
     call add(l:L, '')
 
@@ -4279,7 +4331,11 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • `F3`   Save session (asks for a name; Enter = default)')
     call add(l:L, '  • `F5`   Reload current file (:edit!)')
     call add(l:L, '  • `F10`  Toggle GVim menu bar + toolbar')
-    call add(l:L, '  • `F11`  Toggle window maximize (wmctrl, Linux/X11)')
+    call add(l:L, '  • `F11`  FULL MÀN HÌNH ⇄ cửa sổ 1600x900 ở GIỮA màn hình')
+    call add(l:L, '     (`HaozToggleFullscreen`; đọc độ phân giải bằng `xrandr`, không')
+    call add(l:L, '     có thì `xdpyinfo`, cuối cùng mặc định 1920x1080, rồi đặt cửa sổ')
+    call add(l:L, '     tại x=(sw-W)/2, y=(sh-H)/2).')
+    call add(l:L, '     Đổi kích thước: `let g:haoz_win_w = 1600`, `g:haoz_win_h = 900`')
     call add(l:L, '  • `F12`  Copy full file path to clipboard')
     call add(l:L, '  • `Alt-Z` Toggle line wrap — MẶC ĐỊNH **NOWRAP cho MỌI file**')
     call add(l:L, '     (`set nowrap`; `linebreak` + `breakindent` + `↪` vẫn giữ, chỉ')
