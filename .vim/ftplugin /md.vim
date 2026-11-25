@@ -46,6 +46,14 @@
 " ║  Lưu ý: \z mới đặt 'foldmethod=expr' cho buffer .md (không tự bật).      ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
 
+" ── CÔNG TẮC TỔNG ──────────────────────────────────────────────────────────
+" MẶC ĐỊNH TẮT toàn bộ ftplugin này: buffer .md chỉ dùng syntax/md.vim (tô
+" màu).  Không auto-format, không nền xám, không indentexpr, không md#setup.
+" Bật lại mọi thứ:  let g:md_ftplugin_enable = 1   (trong .vimrc)
+if !get(g:, 'md_ftplugin_enable', 0)
+  finish
+endif
+
 " .md KHÔNG wrap khi mở (vimrc đặt 'set wrap' cho mọi file -> ghi đè tại đây).
 " <M-z> vẫn toggle được (window-local).
 setlocal nowrap
