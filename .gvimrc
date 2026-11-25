@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 1.4                                                          ║
+" ║  Version  : 1.7                                                          ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Phần RIÊNG của GVim, nạp SAU .vimrc (nên thắng mọi mapping   ║
 " ║             trùng trong .vimrc).  Nội dung: disable các phím Normal /    ║
@@ -44,8 +44,8 @@ if has('gui_running') && !isdirectory(s:font_dest)
 endif
 unlet! s:font_dest
 
-silent! set guifont=JetBrains\ Mono,Noto\ Sans\ Mono,DejaVu\ Sans\ Mono:h10
-silent! set guifontwide=JetBrains\ Mono,Noto\ Sans\ Mono,DejaVu\ Sans\ Mono:h10
+silent! set guifont=JetBrains\ Mono,Noto\ Sans\ Mono,DejaVu\ Sans\ Mono:h5
+silent! set guifontwide=JetBrains\ Mono,Noto\ Sans\ Mono,DejaVu\ Sans\ Mono:h5
 
 " ── Phím di chuyển / thao tác bị disable ở Normal mode ──────────────────────
 nnoremap a <Nop>
