@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.110                                                        ║
+" ║  Version  : 7.113                                                        ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -645,8 +645,12 @@ function! StatusFiletype() abort
     return '[' . l:ft . ']'
 endfunction
 
+let s:haoz_sl_fg     = '#00ffff'
+let s:haoz_sl_bg     = '#001933'
+let s:haoz_sl_modefg = '#a8a8a8'
+
 function! s:StatusLineColors() abort
-    silent! highlight StatusLine   guifg=#a8a8a8 guibg=#1f1f1f
+    silent! execute 'highlight StatusLine   guifg=' . s:haoz_sl_fg . ' guibg=' . s:haoz_sl_bg
     silent! highlight StatusLineNC guifg=#6c6c6c guibg=#1c1c1c
     silent! highlight link StatusLinePos StatusLine
 endfunction
@@ -662,11 +666,11 @@ function! StatusLineSetNormal() abort
 endfunction
 
 function! StatusLineSetInsert() abort
-    silent! highlight StatusLine guifg=#a8a8a8 guibg=#661900
+    silent! execute 'highlight StatusLine guifg=' . s:haoz_sl_modefg . ' guibg=#661900'
 endfunction
 
 function! StatusLineSetReplace() abort
-    silent! highlight StatusLine guifg=#a8a8a8 guibg=#006619
+    silent! execute 'highlight StatusLine guifg=' . s:haoz_sl_modefg . ' guibg=#006619'
 endfunction
 
 augroup DynamicStatusLine
@@ -4087,15 +4091,17 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     header (`Version  : X.Y`) lúc khởi động -> bump header là')
     call add(l:L, '     statusline tự đổi, không phải sửa thêm chỗ nào.')
     call add(l:L, '     (`g:haoz_vimrc_version`; không đọc được file -> `[V?]`)')
-    call add(l:L, '  • MÀU CHỮ ĐỒNG NHẤT cho cả thanh: xám `#a8a8a8` (cửa sổ đang')
-    call add(l:L, '     focus) — không còn đổi nhóm màu giữa chừng, nên path và 4')
-    call add(l:L, '     khối info cùng một màu.')
-    call add(l:L, '  • Cửa sổ KHÔNG focus dùng `StatusLineNC`: chữ `#6c6c6c` trên nền')
-    call add(l:L, '     `#1c1c1c` -> xám (mờ hơn cửa sổ đang focus).')
-    call add(l:L, '  • `s:StatusLineColors()` + autocmd `ColorScheme` -> màu xám KHÔNG')
-    call add(l:L, '     bị `colors/haoz.vim` (đặt StatusLine = xanh) ghi đè lại.')
-    call add(l:L, '  • Nền statusline đổi theo mode: xám đậm `#1f1f1f` (Normal),')
-    call add(l:L, '     cam `#661900` (Insert), xanh lá `#006619` (Replace)')
+    call add(l:L, '  • Cửa sổ ĐANG FOCUS (`StatusLine`): nền `#001933` = nền statusline')
+    call add(l:L, '     của panel WinList (`WinListSLLabel`), chữ `#00ffff` = đúng màu')
+    call add(l:L, '     `CursorLineNr` (số hàng của dòng con trỏ đang đứng).')
+    call add(l:L, '  • Cửa sổ KHÔNG focus dùng `StatusLineNC`: chữ xám `#6c6c6c` trên')
+    call add(l:L, '     nền `#1c1c1c` -> mờ hẳn, nhìn là biết cửa sổ nào đang làm việc.')
+    call add(l:L, '  • `s:StatusLineColors()` + autocmd `ColorScheme` -> màu trên KHÔNG')
+    call add(l:L, '     bị `colors/haoz.vim` (`StatusLine` = xanh, `StatusLineNC` = xanh)')
+    call add(l:L, '     ghi đè lại mỗi lần đổi colorscheme.')
+    call add(l:L, '  • Nền statusline đổi theo mode: `#001933` (Normal), cam `#661900`')
+    call add(l:L, '     (Insert), xanh lá `#006619` (Replace); khi ở Insert/Replace chữ')
+    call add(l:L, '     sáng lên `#a8a8a8` cho đủ tương phản (`s:haoz_sl_modefg`)')
     call add(l:L, '')
 
     call add(l:L, '▶ TAB LABEL & WINDOW TITLE')
