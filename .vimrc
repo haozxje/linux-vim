@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.105                                                        ║
+" ║  Version  : 7.106                                                        ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -10,8 +10,8 @@
 
 if has('gui_running')
     autocmd GUIEnter * silent! call system("wmctrl -ir " . v:windowid . " -b add,maximized_vert,maximized_horz")
-    silent! let &guifont     = 'JetBrains Mono,Noto Sans Mono,DejaVu Sans Mono:h5'
-    silent! let &guifontwide = 'JetBrains Mono,Noto Sans Mono,DejaVu Sans Mono:h5'
+    silent! let &guifont     = 'JetBrains Mono NL,JetBrains Mono,Noto Sans Mono,DejaVu Sans Mono:h5'
+    silent! let &guifontwide = 'JetBrains Mono NL,JetBrains Mono,Noto Sans Mono,DejaVu Sans Mono:h5'
 endif
 
 let g:haoz_win_w = get(g:, 'haoz_win_w', 1600)
@@ -77,7 +77,7 @@ set hlsearch
 set encoding=utf-8
 set fileencoding=utf-8
 set termencoding=utf-8
-set guifont=JetBrains\ Mono,Noto\ Sans\ Mono,DejaVu\ Sans\ Mono:h5
+set guifont=JetBrains\ Mono\ NL,JetBrains\ Mono,Noto\ Sans\ Mono,DejaVu\ Sans\ Mono:h5
 set ignorecase
 set smartcase
 set noautoread
@@ -4421,7 +4421,7 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     Xem trước bằng hộp thoại: `:set guifont=*`  — OK là GVim in ra')
     call add(l:L, '     đúng chuỗi `guifont` để copy vào file cấu hình.')
     call add(l:L, '  • CÀI FONT ĐÓNG GÓI SẴN (~/.vim), chỉ cần 1 trong 2 nguồn:')
-    call add(l:L, '       ~/.vim/fonts/*.ttf   — copy nguyên file nhị phân (git/scp)')
+    call add(l:L, '       ~/.vim/fonts/*.ttf   — copy nguyên file nhị phân (bản NL: không ligature)')
     call add(l:L, '       ~/.vim/fonts.b64     — 1 file TEXT base64 (copy-paste được)')
     call add(l:L, '')
     call add(l:L, '  • CÁCH 1 (KHUYÊN — chỉ mở GVim 1 lần): cài bằng TERMINAL trước,')
