@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.95                                                         ║
+" ║  Version  : 7.96                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -14,9 +14,12 @@ endif
 
 let g:haoz_win_w = get(g:, 'haoz_win_w', 1600)
 let g:haoz_win_h = get(g:, 'haoz_win_h', 900)
-let g:haoz_window_maximized = 1
+let s:haoz_screen = []
 
 function! s:HaozScreenSize() abort
+    if !empty(s:haoz_screen)
+        return s:haoz_screen
+    endif
     for l:cmd in ['xrandr --current', 'xdpyinfo']
         let l:out = ''
         try
@@ -28,29 +31,39 @@ function! s:HaozScreenSize() abort
             if l:line =~# '\*' || l:line =~# 'dimensions'
                 let l:m = matchlist(l:line, '\(\d\+\)x\(\d\+\)')
                 if !empty(l:m)
-                    return [str2nr(l:m[1]), str2nr(l:m[2])]
+                    let s:haoz_screen = [str2nr(l:m[1]), str2nr(l:m[2])]
+                    return s:haoz_screen
                 endif
             endif
         endfor
     endfor
-    return [1920, 1080]
+    let s:haoz_screen = [1920, 1080]
+    return s:haoz_screen
+endfunction
+
+function! s:HaozIsMaximized() abort
+    let l:out = ''
+    try
+        let l:out = system('xprop -id ' . v:windowid . ' _NET_WM_STATE')
+    catch
+        let l:out = ''
+    endtry
+    return (l:out =~# '_NET_WM_STATE_MAXIMIZED_VERT'
+        \ && l:out =~# '_NET_WM_STATE_MAXIMIZED_HORZ')
 endfunction
 
 function! HaozToggleFullscreen() abort
-    if get(g:, 'haoz_window_maximized', 1)
-        silent! call system('wmctrl -ir ' . v:windowid
-            \ . ' -b remove,maximized_vert,maximized_horz')
-        sleep 30m
+    if s:HaozIsMaximized()
         let [l:sw, l:sh] = s:HaozScreenSize()
         let l:x = max([0, (l:sw - g:haoz_win_w) / 2])
         let l:y = max([0, (l:sh - g:haoz_win_h) / 2])
-        silent! call system('wmctrl -ir ' . v:windowid . ' -e 0,'
-            \ . l:x . ',' . l:y . ',' . g:haoz_win_w . ',' . g:haoz_win_h)
-        let g:haoz_window_maximized = 0
+        silent! call system('wmctrl -ir ' . v:windowid
+            \ . ' -b remove,maximized_vert,maximized_horz ; wmctrl -ir '
+            \ . v:windowid . printf(' -e 0,%d,%d,%d,%d',
+            \ l:x, l:y, g:haoz_win_w, g:haoz_win_h))
     else
         silent! call system('wmctrl -ir ' . v:windowid
             \ . ' -b add,maximized_vert,maximized_horz')
-        let g:haoz_window_maximized = 1
     endif
 endfunction
 
@@ -4349,9 +4362,12 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • `F5`   Reload current file (:edit!)')
     call add(l:L, '  • `F10`  Toggle GVim menu bar + toolbar')
     call add(l:L, '  • `F11`  FULL MÀN HÌNH ⇄ cửa sổ 1600x900 ở GIỮA màn hình')
-    call add(l:L, '     (`HaozToggleFullscreen`; đọc độ phân giải bằng `xrandr`, không')
-    call add(l:L, '     có thì `xdpyinfo`, cuối cùng mặc định 1920x1080, rồi đặt cửa sổ')
-    call add(l:L, '     tại x=(sw-W)/2, y=(sh-H)/2).')
+    call add(l:L, '     Trạng thái lấy THẬT từ X11 (`xprop -id … _NET_WM_STATE`), không')
+    call add(l:L, '     đoán theo biến nhớ: đang KHÔNG full -> bấm F11 là FULL trước;')
+    call add(l:L, '     đang full -> bấm F11 mới thu về 1600x900.')
+    call add(l:L, '     Độ phân giải: `xrandr --current`, không có thì `xdpyinfo`, cuối')
+    call add(l:L, '     cùng 1920x1080 — CACHE lại nên chỉ đọc 1 lần.  Bỏ full + resize')
+    call add(l:L, '     gộp trong MỘT lệnh `wmctrl` (không sleep) nên không bị delay.')
     call add(l:L, '     Đổi kích thước: `let g:haoz_win_w = 1600`, `g:haoz_win_h = 900`')
     call add(l:L, '  • `F12`  Copy full file path to clipboard')
     call add(l:L, '  • `Alt-Z` Toggle line wrap — MẶC ĐỊNH **NOWRAP cho MỌI file**')
