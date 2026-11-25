@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.97                                                         ║
+" ║  Version  : 7.99                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -189,6 +189,42 @@ augroup haoz_indentline_refresh
     autocmd BufReadPost,FileType,BufWinEnter *
         \ call timer_start(0, {-> s:HaozIndentLineRefresh()})
 augroup END
+
+function! s:HaozCheckTimeSafe() abort
+    if !get(g:, 'haoz_checktime_safe', 1)
+        return
+    endif
+    if &buftype !=# ''
+        return
+    endif
+    let l:f = expand('%')
+    if l:f ==# ''
+        return
+    endif
+    let l:ft = getftime(l:f)
+    if l:ft <= 0
+        return
+    endif
+    if !exists('b:haoz_ftime')
+        let b:haoz_ftime = l:ft
+        return
+    endif
+    if l:ft <= b:haoz_ftime + 2
+        return
+    endif
+    if &modified
+        return
+    endif
+    silent! checktime
+    let b:haoz_ftime = getftime(l:f)
+endfunction
+
+augroup haoz_autoread_safe
+    autocmd!
+    autocmd BufReadPost,BufWritePost * let b:haoz_ftime = getftime(expand('%'))
+    autocmd CursorHold,CursorHoldI * call s:HaozCheckTimeSafe()
+augroup END
+
 set nowrap
 set linebreak
 set breakindent
