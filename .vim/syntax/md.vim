@@ -54,7 +54,12 @@ syn match mdCode           "`[^`]\+`"
 " PATH nội tuyến: `...` có dấu '/' (vd `/nobackup/RLE1396/...`, `~/x`, `a/b`)
 " -> tô XANH BIỂN, tách khỏi `code` thường (vẫn xanh lá).  Khai báo SAU mdCode
 " nên thắng ở cùng vị trí bắt đầu.
-syn match mdCodePath       "`[^`]*/[^`]*`"
+" KHÔNG cho phép space bên trong: nếu cho, một dòng kiểu
+"   `a` và /tmp/x
+" sẽ bị khớp thành MỘT code span dài từ dấu ` thứ 2 tới dấu ` cuối -> tô màu
+" sai cả đoạn chữ ở giữa (lỗi "đôi khi syntax md sai").  Đường dẫn thật hầu
+" như không có space nên chặn space là an toàn.
+syn match mdCodePath       "`[^` \t]*/[^` \t]*`"
 syn match mdFootnote       "\[\^[^\]]*\]"
 syn match mdHtmlAttr       "\s[^>"]\+" contained
 syn match mdHtmlString     "\"[^"]\+\"" contained
@@ -125,6 +130,10 @@ syn match mdTableBorder    "\s|" contained
 syn match mdTableBorder    "\s|\s*$" contained
 syn match mdTableRow       "^\s*|.*|\s*$" contains=mdTableBorder,mdCode,mdCodePath,mdItalic,mdBold,mdStrike,mdLink,mdUrl,mdImg
 syn match mdTableHead      "^\s*|[-: |]*|\s*$"
+" Dòng phân cách của BẢNG VIẾT TAY (cột căn bằng SPACE, KHÔNG có dấu '|'):
+"   ---  ---  ------------  ----------  -----
+" Phải có >= 2 NHÓM gạch nên KHÔNG đụng tới đường kẻ ngang '---' đơn lẻ.
+syn match mdTableHead      /^\s*-\{2,}\%([ \t]\+-\{2,}\)\+\s*$/
 " (dùng /…/ cho khỏi phải escape 2 lần như các dòng trên)
 syn match mdSeparator      /^\s*===\+\s*$/
 syn match mdSeparator      /^\s*---\+\s*$/
@@ -281,7 +290,7 @@ endfunction
 
 call s:MdColors()
 
-" ':colorscheme' chạy 'hi clear' -> các nhóm trên bị xoá; gắn lại. 
+" ':colorscheme' chạy 'hi clear' -> các nhóm trên bị xoá; gắn lại.
 " Dùng autocmd GLOBAL (không <buffer>) vì highlight group là global, và như
 " vậy mỗi lần một buffer .md được nạp chỉ thay thế đúng 1 entry, không xoá
 " mất entry của buffer khác.
