@@ -181,7 +181,7 @@ cho buffer markdown đang mở.
 ## 9. Statusline
 
 ```
-~/.vimrc                                    [CL12:TL431][4sp][md][V7.116]
+~/.vimrc                                    [CL12:TL431][4sp][md][V7.117]
 ```
 
 | Khối | Nghĩa |
@@ -198,8 +198,8 @@ hàng của dòng con trỏ đang đứng). Cửa sổ **không focus**
 cửa sổ nào đang làm việc.
 
 Nền đổi theo mode: `#001933` (Normal), cam `#661900` (Insert), xanh lá
-`#006619` (Replace); ở Insert/Replace chữ sáng lên `#a8a8a8`
-(`s:haoz_sl_modefg`) cho đủ tương phản. Màu được đặt trong
+`#006619` (Replace) — **chữ giữ nguyên `#00ffff` cho cả 3 mode**
+(`s:haoz_sl_insbg` / `s:haoz_sl_repbg` chỉ đổi nền). Màu được đặt trong
 `s:StatusLineColors()` và gắn với autocmd `ColorScheme`, nên `colors/haoz.vim`
 (đặt `StatusLine`/`StatusLineNC` màu xanh) không ghi đè được.
 
