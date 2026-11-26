@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.116                                                        ║
+" ║  Version  : 7.117                                                        ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -647,7 +647,8 @@ endfunction
 
 let s:haoz_sl_fg     = '#00ffff'
 let s:haoz_sl_bg     = '#001933'
-let s:haoz_sl_modefg = '#a8a8a8'
+let s:haoz_sl_insbg  = '#661900'
+let s:haoz_sl_repbg  = '#006619'
 
 function! s:StatusLineColors() abort
     silent! execute 'highlight StatusLine   guifg=' . s:haoz_sl_fg . ' guibg=' . s:haoz_sl_bg
@@ -666,11 +667,11 @@ function! StatusLineSetNormal() abort
 endfunction
 
 function! StatusLineSetInsert() abort
-    silent! execute 'highlight StatusLine guifg=' . s:haoz_sl_modefg . ' guibg=#661900'
+    silent! execute 'highlight StatusLine guifg=' . s:haoz_sl_fg . ' guibg=' . s:haoz_sl_insbg
 endfunction
 
 function! StatusLineSetReplace() abort
-    silent! execute 'highlight StatusLine guifg=' . s:haoz_sl_modefg . ' guibg=#006619'
+    silent! execute 'highlight StatusLine guifg=' . s:haoz_sl_fg . ' guibg=' . s:haoz_sl_repbg
 endfunction
 
 augroup DynamicStatusLine
@@ -4170,8 +4171,9 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     bị `colors/haoz.vim` (`StatusLine` = xanh, `StatusLineNC` = xanh)')
     call add(l:L, '     ghi đè lại mỗi lần đổi colorscheme.')
     call add(l:L, '  • Nền statusline đổi theo mode: `#001933` (Normal), cam `#661900`')
-    call add(l:L, '     (Insert), xanh lá `#006619` (Replace); khi ở Insert/Replace chữ')
-    call add(l:L, '     sáng lên `#a8a8a8` cho đủ tương phản (`s:haoz_sl_modefg`)')
+    call add(l:L, '     (Insert), xanh lá `#006619` (Replace). CHỮ giữ nguyên')
+    call add(l:L, '     `#00ffff` cho cả 3 mode (`s:haoz_sl_insbg` / `s:haoz_sl_repbg`')
+    call add(l:L, '     chỉ đổi nền).')
     call add(l:L, '')
 
     call add(l:L, '▶ TAB LABEL & WINDOW TITLE')
