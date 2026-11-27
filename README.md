@@ -44,7 +44,7 @@ một số phím tắt riêng của GVim sẽ không có.
 
 ---
 
-## 2. Cheat sheet — 20 phím dùng nhiều nhất
+## 2. Cheat sheet — phím hay dùng + TOÀN BỘ phím tắt
 
 | Phím | Việc |
 |---|---|
@@ -68,6 +68,133 @@ một số phím tắt riêng của GVim sẽ không có.
 | `F11` | full màn hình ⇄ cửa sổ 1600×900 ở giữa |
 | `F12` | copy đường dẫn đầy đủ của file đang mở |
 | `:R a --- b` / `:D x` | thay thế / xoá **toàn bộ** chuỗi trong file |
+
+### 2.1 Toàn bộ phím tắt (sinh từ `maplist()` của `.vimrc`)
+
+Bỏ các `<Plug>` nội bộ của plugin. In lại danh sách đang sống bằng `:HaozKeys`.
+
+#### NORMAL (63 phím)
+
+| Phím | Việc |
+|---|---|
+| `<CR>` | `:call SplitExpandHandleEnter()<CR>` |
+| `0` | `:call GoToTab(0)<CR>` |
+| `1` | `:call GoToTab(1)<CR>` |
+| `2` | `:call GoToTab(2)<CR>` |
+| `3` | `:call GoToTab(3)<CR>` |
+| `4` | `:call GoToTab(4)<CR>` |
+| `5` | `:call GoToTab(5)<CR>` |
+| `6` | `:call GoToTab(6)<CR>` |
+| `7` | `:call GoToTab(7)<CR>` |
+| `8` | `:call GoToTab(8)<CR>` |
+| `9` | `:call GoToTab(9)<CR>` |
+| `L` | `:nohlsearch<CR>` |
+| `N` | `Nzz` |
+| `R` | `R<C-r>=<SID>feedPopup()<CR>` |
+| `V` | `<C-v>` |
+| `\wh` | `:call WinListFixPanelHeights()<CR>` |
+| `\wa` | `:call WinListOpenInAllTabs()<CR>` |
+| `\W` | `:call WinListFixWidth()<CR>` |
+| `\w` | `:call WinListToggle()<CR>` |
+| `a` | `a<C-r>=<SID>feedPopup()<CR>` |
+| `ch` | `:call ToggleHaozCommentAtBeginning()<CR>` |
+| `cc` | `:call ToggleCommentLine()<CR>` |
+| `hh` | `:call ToggleCommentSyntaxHaoz()<CR>` |
+| `i` | `i<C-r>=<SID>feedPopup()<CR>` |
+| `ml` | `:call ClearAllMarks()<CR>` |
+| `mh` | `:call ToggleMarkWord()<CR>` |
+| `n` | `nzz` |
+| `o` | `<Nop>` |
+| `wl` | `:call WinListToggle()<CR>` |
+| `x` | `<Nop>` |
+| `<F1>` | `:call ToggleVimrcManual()<CR>` |
+| `<C-S-T>` | `:call ReopenLastClosed()<CR>` |
+| `<C-CR>` | `:call SplitExpandCtrlEnter()<CR>` |
+| `<F10>` | `:call ToggleGvimMenuToolbar()<CR>` |
+| `<Del>` | `<Nop>` |
+| `<M-z>` | `:set wrap!<CR>` |
+| `<C-U>` | `:<C-u>call ToggleCase()<CR>` |
+| `<S-Del>` | `dd` |
+| `<C-Z>` | `u` |
+| `<Home>` | `^` |
+| `<M-Right>` | `:call WinListNavRight()<CR>` |
+| `<M-Left>` | `:call WinListNavLeft()<CR>` |
+| `<C-Down>` | `:tabnext<CR>` |
+| `<C-Up>` | `:tabprevious<CR>` |
+| `<C-S-Left>` | `vb` |
+| `<C-S-Right>` | `vew` |
+| `<C-Left>` | `b` |
+| `<C-Right>` | `w` |
+| `<S-End>` | `v<End>` |
+| `<S-Home>` | `v<Home>` |
+| `<S-Down>` | `v<Down>` |
+| `<S-Up>` | `v<Up>` |
+| `<S-Right>` | `v<Right>` |
+| `<S-Left>` | `v<Left>` |
+| `<C-F>` | `:let @/ = '\<'.expand('<cword>').'\>'<CR>:set hlsearch<CR>` |
+| `<C-D>` | `:let @/='\<'.expand('<cword>').'\>'<CR>viw` |
+| `<C-X>` | `"+dd` |
+| `<C-V>` | `"+p` |
+| `<C-C>` | `"+yy` |
+| `<C-L>` | `V` |
+| `<C-A>` | `ggVG` |
+| `<F12>` | `:call CopyFullPath()<CR>` |
+| `<F5>` | `:edit!<CR>` |
+
+#### VISUAL (22 phím)
+
+| Phím | Việc |
+|---|---|
+| `<Tab>` | `:<C-u>call VisualModeTab()<CR>gv` |
+| `ch` | `:<C-u>call ToggleHaozCommentRangeAtBeginning(line("'<"), line("'>"))<CR>` |
+| `cc` | `:<C-u>call ToggleCommentRange(line("'<"), line("'>"))<CR>` |
+| `hh` | `:call ToggleCommentSyntaxHaoz()<CR>` |
+| `mh` | `:<C-u>call ToggleMarkSelection()<CR>` |
+| `<C-U>` | `:<C-u>call ToggleCase()<CR>` |
+| `<C-Z>` | `<Esc>u` |
+| `<S-Tab>` | `:<C-u>call VisualModeShiftTab()<CR>gv` |
+| `<C-S-Left>` | `b` |
+| `<C-S-Right>` | `e` |
+| `<C-Left>` | `b` |
+| `<C-Right>` | `e` |
+| `<S-End>` | `<End>` |
+| `<S-Home>` | `<Home>` |
+| `<S-Down>` | `<Down>` |
+| `<S-Up>` | `<Up>` |
+| `<S-Right>` | `<Right>` |
+| `<S-Left>` | `<Left>` |
+| `<C-F>` | `"zy:let @/ = escape(@z, '/\')<CR>:set hlsearch<CR>` |
+| `<C-X>` | `"+d` |
+| `<C-V>` | `"+p` |
+| `<C-C>` | `"+y` |
+
+#### INSERT (17 phím)
+
+| Phím | Việc |
+|---|---|
+| `<C-S-T>` | `<Esc>:call ReopenLastClosed()<CR>` |
+| `<C-Z>` | `<C-o>u` |
+| `<Home>` | `<C-o>^` |
+| `<C-Left>` | `<C-o>b` |
+| `<C-Right>` | `<C-o>w` |
+| `<C-S-Right>` | `<S-Right><C-Right>` |
+| `<C-S-Left>` | `<S-Left><C-Left>` |
+| `<S-End>` | `<C-o>v<End>` |
+| `<S-Home>` | `<C-o>v<Home>` |
+| `<S-Down>` | `<C-o>v<Down><Left>` |
+| `<S-Up>` | `<Left><C-o>v<Up><Right>` |
+| `<S-Right>` | `<C-o>v` |
+| `<S-Left>` | `<Left><C-o>v` |
+| `<C-D>` | `<Esc>viw` |
+| `<C-V>` | `<C-r>+` |
+| `<C-L>` | `<Esc>V` |
+| `<F12>` | `<C-o>:call CopyFullPath()<CR>` |
+
+#### CMD-LINE (1 phím)
+
+| Phím | Việc |
+|---|---|
+| `<C-V>` | `<C-r>+` |
 
 ---
 
@@ -588,132 +715,3 @@ khối, không phân biệt heading hay bảng. **Dòng cuối file không có d
 | 2. | Gộp hàng gây thành hàng mới | không tự động hoá bảng có ô gãy |
 | 3. | Bảng dùng `\|` với separator ngắn | dùng dấu cách trong fence thay thế |
 | 4. | Báo xong khi chưa kiểm STT | chạy đủ sáu bước ở mục 7.1 |
-
-## 17. Toàn bộ phím tắt
-
-Sinh từ `maplist()` của chính `.vimrc` (bỏ các `<Plug>` nội bộ của plugin).
-In lại từ mapping đang sống: `:HaozKeys`.
-
-### NORMAL (63 phím)
-
-| Phím | Việc |
-|---|---|
-| `<CR>` | `:call SplitExpandHandleEnter()<CR>` |
-| `0` | `:call GoToTab(0)<CR>` |
-| `1` | `:call GoToTab(1)<CR>` |
-| `2` | `:call GoToTab(2)<CR>` |
-| `3` | `:call GoToTab(3)<CR>` |
-| `4` | `:call GoToTab(4)<CR>` |
-| `5` | `:call GoToTab(5)<CR>` |
-| `6` | `:call GoToTab(6)<CR>` |
-| `7` | `:call GoToTab(7)<CR>` |
-| `8` | `:call GoToTab(8)<CR>` |
-| `9` | `:call GoToTab(9)<CR>` |
-| `L` | `:nohlsearch<CR>` |
-| `N` | `Nzz` |
-| `R` | `R<C-r>=<SID>feedPopup()<CR>` |
-| `V` | `<C-v>` |
-| `\wh` | `:call WinListFixPanelHeights()<CR>` |
-| `\wa` | `:call WinListOpenInAllTabs()<CR>` |
-| `\W` | `:call WinListFixWidth()<CR>` |
-| `\w` | `:call WinListToggle()<CR>` |
-| `a` | `a<C-r>=<SID>feedPopup()<CR>` |
-| `ch` | `:call ToggleHaozCommentAtBeginning()<CR>` |
-| `cc` | `:call ToggleCommentLine()<CR>` |
-| `hh` | `:call ToggleCommentSyntaxHaoz()<CR>` |
-| `i` | `i<C-r>=<SID>feedPopup()<CR>` |
-| `ml` | `:call ClearAllMarks()<CR>` |
-| `mh` | `:call ToggleMarkWord()<CR>` |
-| `n` | `nzz` |
-| `o` | `<Nop>` |
-| `wl` | `:call WinListToggle()<CR>` |
-| `x` | `<Nop>` |
-| `<F1>` | `:call ToggleVimrcManual()<CR>` |
-| `<C-S-T>` | `:call ReopenLastClosed()<CR>` |
-| `<C-CR>` | `:call SplitExpandCtrlEnter()<CR>` |
-| `<F10>` | `:call ToggleGvimMenuToolbar()<CR>` |
-| `<Del>` | `<Nop>` |
-| `<M-z>` | `:set wrap!<CR>` |
-| `<C-U>` | `:<C-u>call ToggleCase()<CR>` |
-| `<S-Del>` | `dd` |
-| `<C-Z>` | `u` |
-| `<Home>` | `^` |
-| `<M-Right>` | `:call WinListNavRight()<CR>` |
-| `<M-Left>` | `:call WinListNavLeft()<CR>` |
-| `<C-Down>` | `:tabnext<CR>` |
-| `<C-Up>` | `:tabprevious<CR>` |
-| `<C-S-Left>` | `vb` |
-| `<C-S-Right>` | `vew` |
-| `<C-Left>` | `b` |
-| `<C-Right>` | `w` |
-| `<S-End>` | `v<End>` |
-| `<S-Home>` | `v<Home>` |
-| `<S-Down>` | `v<Down>` |
-| `<S-Up>` | `v<Up>` |
-| `<S-Right>` | `v<Right>` |
-| `<S-Left>` | `v<Left>` |
-| `<C-F>` | `:let @/ = '\<'.expand('<cword>').'\>'<CR>:set hlsearch<CR>` |
-| `<C-D>` | `:let @/='\<'.expand('<cword>').'\>'<CR>viw` |
-| `<C-X>` | `"+dd` |
-| `<C-V>` | `"+p` |
-| `<C-C>` | `"+yy` |
-| `<C-L>` | `V` |
-| `<C-A>` | `ggVG` |
-| `<F12>` | `:call CopyFullPath()<CR>` |
-| `<F5>` | `:edit!<CR>` |
-
-### VISUAL (22 phím)
-
-| Phím | Việc |
-|---|---|
-| `<Tab>` | `:<C-u>call VisualModeTab()<CR>gv` |
-| `ch` | `:<C-u>call ToggleHaozCommentRangeAtBeginning(line("'<"), line("'>"))<CR>` |
-| `cc` | `:<C-u>call ToggleCommentRange(line("'<"), line("'>"))<CR>` |
-| `hh` | `:call ToggleCommentSyntaxHaoz()<CR>` |
-| `mh` | `:<C-u>call ToggleMarkSelection()<CR>` |
-| `<C-U>` | `:<C-u>call ToggleCase()<CR>` |
-| `<C-Z>` | `<Esc>u` |
-| `<S-Tab>` | `:<C-u>call VisualModeShiftTab()<CR>gv` |
-| `<C-S-Left>` | `b` |
-| `<C-S-Right>` | `e` |
-| `<C-Left>` | `b` |
-| `<C-Right>` | `e` |
-| `<S-End>` | `<End>` |
-| `<S-Home>` | `<Home>` |
-| `<S-Down>` | `<Down>` |
-| `<S-Up>` | `<Up>` |
-| `<S-Right>` | `<Right>` |
-| `<S-Left>` | `<Left>` |
-| `<C-F>` | `"zy:let @/ = escape(@z, '/\')<CR>:set hlsearch<CR>` |
-| `<C-X>` | `"+d` |
-| `<C-V>` | `"+p` |
-| `<C-C>` | `"+y` |
-
-### INSERT (17 phím)
-
-| Phím | Việc |
-|---|---|
-| `<C-S-T>` | `<Esc>:call ReopenLastClosed()<CR>` |
-| `<C-Z>` | `<C-o>u` |
-| `<Home>` | `<C-o>^` |
-| `<C-Left>` | `<C-o>b` |
-| `<C-Right>` | `<C-o>w` |
-| `<C-S-Right>` | `<S-Right><C-Right>` |
-| `<C-S-Left>` | `<S-Left><C-Left>` |
-| `<S-End>` | `<C-o>v<End>` |
-| `<S-Home>` | `<C-o>v<Home>` |
-| `<S-Down>` | `<C-o>v<Down><Left>` |
-| `<S-Up>` | `<Left><C-o>v<Up><Right>` |
-| `<S-Right>` | `<C-o>v` |
-| `<S-Left>` | `<Left><C-o>v` |
-| `<C-D>` | `<Esc>viw` |
-| `<C-V>` | `<C-r>+` |
-| `<C-L>` | `<Esc>V` |
-| `<F12>` | `<C-o>:call CopyFullPath()<CR>` |
-
-### CMD-LINE (1 phím)
-
-| Phím | Việc |
-|---|---|
-| `<C-V>` | `<C-r>+` |
-
