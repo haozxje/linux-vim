@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.118                                                        ║
+" ║  Version  : 7.131                                                        ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -331,16 +331,28 @@ if !has('gui_running') && has('termguicolors')
     set termguicolors
 endif
 
-runtime! plugin/verilog_systemverilog.vim " added to use for vim 9.1
 syntax enable
 syntax on
 set background=dark
 colorscheme haoz
 
 filetype plugin on
-au BufNewFile,BufRead *.md setlocal ft=md nowrap
-au FileType md setlocal nowrap shiftwidth=4
-au BufReadPost,BufWinEnter,WinEnter *.md setlocal nowrap shiftwidth=4
+au BufNewFile,BufRead *.md setlocal ft=md
+
+function! s:MdBufferDefaults() abort
+    if exists('b:haoz_md_defaults')
+        return
+    endif
+    let b:haoz_md_defaults = 1
+    setlocal nowrap
+    setlocal shiftwidth=4
+endfunction
+
+" CHỈ đặt mặc định LẦN ĐẦU buffer được nạp. Trước đây dòng này chạy ở mọi
+" BufReadPost/WinEnter nên sau mỗi lần autoread nó đè `nowrap` lên, xoá mất
+" lựa chọn wrap bạn tự bật tay.
+au FileType md call s:MdBufferDefaults()
+au BufReadPost,BufWinEnter *.md call s:MdBufferDefaults()
 
 function! s:MdLeadCodes(text) abort
     let l:out = []
@@ -1466,6 +1478,10 @@ let g:bookmark_center = 1
 
 if has('gui_running')
     set guioptions-=mT
+    " Thanh cuộn NGANG (bottom). `b` = bottom scrollbar; thanh dọc đã có sẵn
+    " (`r`/`l` tuỳ bản GVim). Thanh ngang chỉ hoạt động khi buffer `nowrap`
+    " và dòng dài hơn bề ngang cửa sổ.
+    set guioptions+=b
 endif
 
 set title
@@ -1869,6 +1885,49 @@ function! WinListFixWidth() abort
     silent! call SyncNERDTreeWidth()
 endfunction
 
+" GIỮ CỨNG bề ngang panel: mọi thao tác (mở/thu split, đổi tab, resize cửa
+" sổ GVim, bật/tắt NERDTree) đều kéo WinList về đúng `s:ColumnWidth()`.
+let s:wl_width_timer = -1
+
+function! s:WinListEnforceWidth() abort
+    if !get(g:, 'winlist_fix_width', 1) | return | endif
+    if !WinListIsOpenAnywhere()           | return | endif
+    let l:wnr = bufwinnr(WinListBufName())
+    if l:wnr == -1                        | return | endif
+
+    let l:want = s:ColumnWidth()
+    if winwidth(l:wnr) == l:want          | return | endif
+
+    let l:cur = winnr()
+    silent! call WinListLockSplitWidths()
+    execute 'noautocmd ' . l:wnr . 'wincmd w'
+    silent! execute 'vertical resize ' . l:want
+    execute 'noautocmd ' . l:cur . 'wincmd w'
+    silent! call WinListUnlockSplitWidths()
+endfunction
+
+function! s:WinListWidthSoon() abort
+    if s:wl_width_timer != -1 | return | endif
+    let s:wl_width_timer = timer_start(40, {-> s:WinListWidthTick()})
+endfunction
+
+function! s:WinListWidthTick(...) abort
+    let s:wl_width_timer = -1
+    " Bỏ qua khi đang Insert/Replace/Visual/Select/Terminal (resize lúc đó gây
+    " giật); Normal, Operator-pending, Command-line thì cứ chỉnh.
+    if mode() =~# '^[iRvVsSt!]' | return | endif
+    silent! call s:WinListEnforceWidth()
+endfunction
+
+augroup WinListFixedWidth
+    autocmd!
+    autocmd VimResized,WinEnter,BufWinEnter,TabEnter * silent! call s:WinListWidthSoon()
+    " Lưới an toàn: cứ rảnh tay là kiểm lại bề ngang (chỉ so sánh, rất rẻ) ->
+    " mọi thao tác (:vsplit, :only, kéo chuột, đổi tab, NERDTree) đều kéo
+    " WinList về đúng cỡ của nó.
+    autocmd CursorHold,CursorHoldI * silent! call s:WinListEnforceWidth()
+augroup END
+
 function! WinListFixPanelHeights() abort
     if !WinListIsOpen() | return | endif
 
@@ -2068,6 +2127,8 @@ augroup WinListHighlight
                                \ nonumber norelativenumber nolist
                                \ cursorline buftype=nofile noswapfile nobuflisted
                                \ winfixwidth winfixheight signcolumn=no
+                               \ selectmode=
+        autocmd FileType winlist silent! call <SID>WinListMappings()
     augroup END
 augroup END
 
@@ -2168,6 +2229,7 @@ function! WinListRefreshAllTabs() abort
             setlocal modifiable
             silent! %delete _
             silent! call setline(1, l:lines)
+            let b:winlist_hdr_tids = get(s:, 'winlist_hdr_tids', {})
             setlocal nomodifiable nomodified
             setlocal statusline=%!WinListStatusLine()
             silent! call WinListApplySyntax()
@@ -2180,9 +2242,18 @@ endfunction
 
 let s:wl_last_refresh  = reltime()
 let s:wl_refresh_timer = -1
+let s:wl_quiet_until   = []
+let s:wl_after_jump_timer = -1
 
 function! WinListRefreshSoon() abort
     if g:winlist_opening || g:panel_opening || g:netrw_expanding
+        return
+    endif
+
+    " Sau khi nhảy file: giữ yên 0.8s. Panel dựng lại rất đắt trên NFS và
+    " chính nó làm cú nhảy bị lag.
+    if !empty(s:wl_quiet_until)
+        \ && reltimefloat(reltime(s:wl_quiet_until)) < 0.2
         return
     endif
 
@@ -2218,6 +2289,19 @@ function! s:WinListRefreshTick(...) abort
     silent! call WinListRefreshAllTabs()
 endfunction
 
+function! s:WinListMappings() abort
+    " CHỈ map đúng 3 phím chuột cần thiết. TUYỆT ĐỐI không map
+    " <LeftDrag>/<LeftRelease>/x<LeftMouse> nữa: chặn các sự kiện kéo/nhả
+    " chuột làm GUI kẹt ở trạng thái "đang kéo" -> treo khi bôi đen.
+    " Chống Select mode bằng option, không bằng mapping: `selectmode=`.
+    nnoremap <silent> <buffer> <LeftMouse>   <LeftMouse>:call <SID>WinListClick()<CR>
+    nnoremap <silent> <buffer> <2-LeftMouse> :call WinListMouseJump()<CR>
+
+    nnoremap <silent> <nowait> <buffer> <CR> :call WinListJump()<CR>
+    nnoremap <silent> <nowait> <buffer> q    :call CombinedPanelClose()<CR>
+    nnoremap <silent> <nowait> <buffer> r    :call WinListRefreshAllTabs()<CR>
+endfunction
+
 function! s:SetupWinListWindow() abort
     setlocal winfixwidth
     setlocal buftype=nofile bufhidden=hide
@@ -2226,11 +2310,11 @@ function! s:SetupWinListWindow() abort
     setlocal cursorline filetype=winlist signcolumn=no
     setlocal statusline=%!WinListStatusLine()
 
-    nnoremap <silent> <nowait> <buffer> <LeftMouse>   <LeftMouse>
-    nnoremap <silent> <nowait> <buffer> <2-LeftMouse> :call WinListMouseJump()<CR>
-    nnoremap <silent> <nowait> <buffer> <CR>          :call WinListJump()<CR>
-    nnoremap <silent> <nowait> <buffer> q             :call CombinedPanelClose()<CR>
-    nnoremap <silent> <nowait> <buffer> r             :call WinListRefreshAllTabs()<CR>
+    " Không cho chuột biến panel thành vùng chọn (Select/Visual mode).
+    setlocal selectmode=
+    setlocal virtualedit=
+
+    call s:WinListMappings()
 endfunction
 
 function! CombinedPanelOpen() abort
@@ -2508,9 +2592,186 @@ function! WinListMouseJump() abort
         let l:lnum = line('.')
     endif
 
-    if l:lnum > 0 && getline(l:lnum) =~# '^[> ]*\d\+:'
-        call WinListJump()
+    call s:WinListJumpEntry(s:WinListEntryLine(l:lnum))
+endfunction
+
+function! s:WinListEntryLine(lnum) abort
+    let l:n = a:lnum
+    while l:n > 1 && getline(l:n) !~# '^[> ]*\d\+:' && l:n > a:lnum - 3
+        let l:n -= 1
+    endwhile
+    return getline(l:n) =~# '^[> ]*\d\+:' ? l:n : 0
+endfunction
+
+let s:wl_jump_time = []
+
+function! s:WinListJumpEntry(lnum) abort
+    if a:lnum <= 0
+        return
     endif
+    if !empty(s:wl_jump_time)
+        \ && reltimefloat(reltime(s:wl_jump_time)) < 0.25
+        return
+    endif
+    let s:wl_jump_time = reltime()
+    call cursor(a:lnum, 1)
+    silent! call WinListJump()
+endfunction
+
+let s:wl_click_time = []
+let s:wl_click_line = -1
+let s:wl_click_count = 0
+
+function! s:WinListClick() abort
+    let l:lnum = s:WinListEntryLine(line('.'))
+
+    if l:lnum <= 0 && exists('*getmousepos')
+        let l:mpos = getmousepos()
+        if get(l:mpos, 'winid', 0) == win_getid() && get(l:mpos, 'line', 0) > 0
+            let l:lnum = s:WinListEntryLine(l:mpos.line)
+        endif
+    endif
+
+    if l:lnum <= 0
+        return
+    endif
+
+    let l:ms = get(g:, 'winlist_dblclick_ms', 1200)
+    let s:wl_click_count += 1
+
+    if !empty(s:wl_click_time) && l:lnum == s:wl_click_line
+        \ && reltimefloat(reltime(s:wl_click_time)) * 1000.0 <= l:ms
+        let s:wl_click_time = []
+        let s:wl_click_line = -1
+        call s:WinListJumpEntry(l:lnum)
+        return
+    endif
+
+    let s:wl_click_time = reltime()
+    let s:wl_click_line = l:lnum
+endfunction
+
+function! WinListDiag() abort
+    let l:map = maparg('<LeftMouse>', 'n')
+    let l:dbl = maparg('<2-LeftMouse>', 'n')
+    let l:res = s:WinListEntryLine(line('.'))
+    echo 'filetype   : ' . &filetype
+    echo 'bufname    : ' . bufname('%')
+    echo '<LeftMouse>: ' . (l:map ==# '' ? '*** KHONG CO MAP ***' : l:map)
+    echo '<2-Left>   : ' . (l:dbl ==# '' ? '*** KHONG CO MAP ***' : l:dbl)
+    echo 'cursor line: ' . line('.') . '  -> entry line: ' . l:res
+    echo 'line text  : [' . getline('.') . ']'
+    echo 'hdr_tids   : ' . (empty(get(b:, 'winlist_hdr_tids', {})) ? '*** TRONG ***' : string(get(b:, 'winlist_hdr_tids', {})))
+    echo 'dblclick ms: ' . get(g:, 'winlist_dblclick_ms', 1200)
+    echo 'clicks     : ' . s:wl_click_count . ' last on line ' . s:wl_click_line
+
+    let l:name  = s:WinListEntryName(l:res)
+    let l:dir   = s:WinListEntryDir(l:res)
+    let l:nr    = s:WinListBestBuffer(l:name, l:dir)
+    echo 'entry name : [' . l:name . ']  dir: [' . l:dir . ']'
+    echo 'best buffer: ' . l:nr . ' ' . (l:nr > 0 ? bufname(l:nr) : '')
+    echo 'bufwinnr   : ' . (l:nr > 0 ? bufwinnr(l:nr) : -1)
+    echo 'cur tab/buf: ' . tabpagenr() . '/' . bufnr('%')
+endfunction
+command! WinListDiag call WinListDiag()
+
+function! s:WinListEntryName(lnum) abort
+    let l:name = matchstr(getline(a:lnum), '^[> ]*\d\+: \zs.*')
+    " Dòng entry ĐANG ACTIVE được đệm space cho kín nền xanh -> phải cắt
+    " đuôi, không thì fnamemodify(':t') trả 'b.c      ' và không khớp buffer.
+    let l:name = substitute(l:name, '\s\+$', '', '')
+    let l:name = substitute(l:name, '\s*\[+\]$', '', '')
+    return l:name ==# '[No Name]' ? '' : l:name
+endfunction
+
+function! s:WinListEntryDir(lnum) abort
+    let l:dir = matchstr(getline(a:lnum + 1), '^\s\+\zs\S.*$')
+    let l:dir = substitute(l:dir, '\s\+$', '', '')
+    return l:dir ==# '-' ? '' : l:dir
+endfunction
+
+function! s:WinListBestBuffer(name, dir) abort
+    if a:name ==# ''
+        return -1
+    endif
+
+    let l:tail = substitute(a:dir, '^…/*', '', '')
+    if l:tail =~# '^~/'
+        let l:tail = expand('~') . l:tail[1:]
+    endif
+    let l:tail = substitute(l:tail, '/\+$', '', '')
+
+    let l:best  = -1
+    let l:score_best = 0
+    for l:nr in range(1, bufnr('$'))
+        if !bufloaded(l:nr)
+            continue
+        endif
+        let l:nm = bufname(l:nr)
+        if l:nm ==# '' || fnamemodify(l:nm, ':t') !=# a:name
+            continue
+        endif
+        let l:score = 1
+        if l:tail !=# '' && stridx(fnamemodify(l:nm, ':p'), l:tail) >= 0
+            let l:score = 2
+        endif
+        if l:score > l:score_best
+            let l:score_best = l:score
+            let l:best = l:nr
+        endif
+    endfor
+
+    return l:best
+endfunction
+
+function! s:WinListGoWindow(nr, prefer_tab) abort
+    let l:w = bufwinnr(a:nr)
+    if l:w != -1
+        execute l:w . 'wincmd w'
+        return 1
+    endif
+
+    " CHỈ thử tab in trên header — tối đa MỘT lần đổi tab. Trước đây quét
+    " mọi tab trong lúc đang xử lý mapping: mỗi `tabnext` phải vẽ lại cả
+    " tab, trên VNC + NFS thành vài giây -> GVim trông như bị treo.
+    if a:prefer_tab <= 0 || a:prefer_tab > tabpagenr('$') || a:prefer_tab == tabpagenr()
+        return 0
+    endif
+
+    let l:cur = tabpagenr()
+    execute 'noautocmd tabnext ' . a:prefer_tab
+    let l:w = bufwinnr(a:nr)
+    if l:w != -1
+        execute l:w . 'wincmd w'
+        return 1
+    endif
+    execute 'noautocmd tabnext ' . l:cur
+    return 0
+endfunction
+
+function! s:WinListFocusEntry(name, dir, prefer_tab) abort
+    let l:nr = s:WinListBestBuffer(a:name, a:dir)
+    if l:nr == -1
+        return 0
+    endif
+    return s:WinListGoWindow(l:nr, a:prefer_tab)
+endfunction
+
+function! s:WinListGoQuiet() abort
+    let s:wl_quiet_until = reltime()
+    if s:wl_after_jump_timer != -1
+        call timer_stop(s:wl_after_jump_timer)
+    endif
+    let s:wl_after_jump_timer = timer_start(300, {-> s:WinListAfterJumpRefresh()})
+endfunction
+
+function! s:WinListAfterJumpRefresh(...) abort
+    let s:wl_after_jump_timer = -1
+    let s:wl_quiet_until     = []
+    if mode() !~# '^\%(n\|no\)$'
+        return
+    endif
+    silent! call WinListRefreshAllTabs()
 endfunction
 
 function! WinListJump() abort
@@ -2520,16 +2781,36 @@ function! WinListJump() abort
     let l:display_idx = str2nr(l:m[1])
 
     let l:header_tid = ''
+    let l:header_tab = -1
     let l:tids = get(b:, 'winlist_hdr_tids', {})
     for l:lnum in range(1, line('.'))
-        if getline(l:lnum) =~# '^=== Tab \d\+'
+        let l:h = matchlist(getline(l:lnum), '^=== Tab \(\d\+\)')
+        if !empty(l:h)
+            let l:header_tab = str2nr(l:h[1])
             let l:header_tid = get(l:tids, l:lnum, '')
         endif
     endfor
 
+    " Ưu tiên tìm cửa sổ THEO TÊN FILE + ĐUÔI ĐƯỜNG DẪN (ổn định, không lệ
+    " thuộc thứ tự cửa sổ hay việc panel đã được dựng lại giữa chừng):
+    " dòng entry cho tên file, dòng ngay dưới cho đường dẫn thư mục.
+    if s:WinListFocusEntry(s:WinListEntryName(line('.')),
+        \ s:WinListEntryDir(line('.')), l:header_tab)
+        " Không dựng lại panel ngay: giữ yên 0.8s để cú nhảy không bị lag
+        " (trên NFS, WinListRefreshAllTabs rất đắt).
+        call s:WinListGoQuiet()
+        return
+    endif
+
     let l:real_tab = -1
     if l:header_tid !=# ''
         let l:real_tab = WinListFindTabByID(l:header_tid)
+    endif
+
+    " Fallback: b:winlist_hdr_tids có thể chưa có (panel vừa dựng bằng
+    " WinListRefreshAllTabs trước bản vá) -> dùng số tab in trên header.
+    if l:real_tab == -1 && l:header_tab > 0 && l:header_tab <= tabpagenr('$')
+        let l:real_tab = l:header_tab
     endif
 
     if l:real_tab == -1
@@ -2557,7 +2838,7 @@ function! WinListJump() abort
 
     if l:real_win != -1
         execute l:real_win . 'wincmd w'
-        silent! call WinListRefresh()
+        silent! call WinListRefreshSoon()
     endif
 endfunction
 
@@ -4415,6 +4696,13 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     trái rộng `g:NERDTreeWinSize = 78` (WinList cũng 78 vì chia')
     call add(l:L, '     chung cột); NERDTree ĐÓNG -> về 36.  Luôn chừa >= 20 cột cho')
     call add(l:L, '     cửa sổ code nên cửa sổ hẹp sẽ thấy nhỏ hơn 78.')
+    call add(l:L, '  • BỀ NGANG ĐƯỢC GIỮ CỨNG (v7.131): `s:WinListEnforceWidth()` so')
+    call add(l:L, '     `winwidth()` với `s:ColumnWidth()`, lệch là `vertical resize`')
+    call add(l:L, '     lại (bọc `noautocmd` + khoá split widths, không giật). Gọi từ')
+    call add(l:L, '     `WinEnter`/`BufWinEnter`/`TabEnter`/`VimResized` (debounce 40ms)')
+    call add(l:L, '     và từ `CursorHold` (chỉ so sánh, rất rẻ) -> :vsplit, :only, kéo')
+    call add(l:L, '     chuột, đổi tab, bật/tắt NERDTree đều đưa panel về đúng cỡ.')
+    call add(l:L, '     Tắt: `let g:winlist_fix_width = 0`.')
     call add(l:L, '  • WinList         LUÔN hiển thị ở mọi tab (cột trái, full height)')
     call add(l:L, '     Dòng tiêu đề `=== Tab N  [x split] ===...` được ĐỆM `=` cho')
     call add(l:L, '     vừa ĐÚNG bề ngang panel; Tab-ID (trước đây nối sau dấu `§`)')
@@ -4428,6 +4716,15 @@ function! s:VimrcManualContent() abort
     call add(l:L, '       let g:winlist_full_path = 1     (mặc định 0)')
     call add(l:L, '     Panel wrap nên đường dẫn dài tự xuống dòng, không bị cắt.')
     call add(l:L, '  • `wl`            Bật/tắt WinList (KHÔNG ảnh hưởng NERDTree)')
+    call add(l:L, '  • BUG ĐÃ SỬA (v7.121) - Enter/double-click KHÔNG nhảy:')
+    call add(l:L, '     `WinListJump()` cần `b:winlist_hdr_tids` để biết dòng header')
+    call add(l:L, '     thuộc tab nào, nhưng biến này CHỈ được set trong')
+    call add(l:L, '     `s:WinListRefresh()`; panel thực tế dựng bằng')
+    call add(l:L, '     `WinListRefreshAllTabs()` (đường chạy ở gần như mọi event) ->')
+    call add(l:L, '     `b:winlist_hdr_tids` rỗng -> tab-id = "" -> `real_tab = -1` ->')
+    call add(l:L, '     hàm `echo "tab no longer exists"` rồi return, không nhảy gì.')
+    call add(l:L, '     Vá: set `b:winlist_hdr_tids` ở CẢ HAI đường render + fallback')
+    call add(l:L, '     lấy số tab in trên header (`=== Tab N`) khi map rỗng.')
     call add(l:L, '  • `Ctrl-B`        Bật/tắt NERDTree. NERDTree mở ra ở NỬA DƯỚI')
     call add(l:L, '     của cột trái (WinList giữ nửa trên). WinList KHÔNG bị ảnh')
     call add(l:L, '     hưởng; con trỏ nhảy vào NERDTree, tắt thì trả về cửa sổ code.')
@@ -4436,6 +4733,26 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • `<leader>wh`  Fix panel heights (50/50 split when NERDTree is up)')
     call add(l:L, '  • Inside panel: `Enter` / double-click jumps to entry, `q` closes,')
     call add(l:L, '     `r` refreshes')
+    call add(l:L, '  • DOUBLE-CLICK tự phát hiện, KHÔNG phụ thuộc `<2-LeftMouse>` của Vim:')
+    call add(l:L, '     `<LeftMouse>` map sang chính nó + `s:WinListClick()`; 2 click')
+    call add(l:L, '     cùng dòng trong `g:winlist_dblclick_ms` (mặc định 1200ms, KHÔNG')
+    call add(l:L, '     dùng `&mousetime` -> VNC/NFS chậm vẫn ăn) -> nhảy.')
+    call add(l:L, '     `<2-LeftMouse>` vẫn map tới `WinListMouseJump()`;')
+    call add(l:L, '     `s:WinListJumpEntry()` chặn nhảy 2 lần trong 0.25s. Click vào')
+    call add(l:L, '     DÒNG PATH cũng nhảy (tự lùi lên dòng entry gần nhất ≤ 3 dòng).')
+    call add(l:L, '  • CHUỘT TRONG PANEL: chỉ map `<LeftMouse>` (dời con trỏ + tự phát')
+    call add(l:L, '     hiện double-click) và `<2-LeftMouse>`. KHÔNG map `<LeftDrag>`,')
+    call add(l:L, '     `<LeftRelease>`, `x<LeftMouse>` — chặn sự kiện kéo/nhả chuột')
+    call add(l:L, '     làm GUI kẹt trạng thái "đang kéo" -> treo khi bôi đen. Chống')
+    call add(l:L, '     Select mode bằng option `setlocal selectmode=` (bôi đen vẫn')
+    call add(l:L, '     chạy, chỉ là Visual thường).')
+    call add(l:L, '  • NHẢY TỐI ĐA 1 LẦN ĐỔI TAB: `s:WinListGoWindow()` chỉ thử tab in')
+    call add(l:L, '     trên header, KHÔNG quét mọi tab (mỗi `tabnext` phải vẽ lại cả')
+    call add(l:L, '     tab -> VNC/NFS thành treo vài giây). Panel được dựng lại MỘT')
+    call add(l:L, '     lần sau 300ms (hẹn bằng timer) để cập nhật dấu `>` active;')
+    call add(l:L, '     trong 0.2s đầu mọi yêu cầu refresh đều bị bỏ qua.')
+    call add(l:L, '  • Không nhảy được -> đứng trong panel chạy `:WinListDiag` để xem')
+    call add(l:L, '     mapping có tồn tại không, dòng đang đứng, số click đã đếm.')
     call add(l:L, '  • NERDTree Enter/double-click opens file as a NEW right split')
     call add(l:L, '     (panel stays open, stable Tab-ID survives tab drag-reorder)')
     call add(l:L, '  • NERDTree `T` mở file ở TAB MỚI nhưng đặt ở VỊ TRÍ CUỐI thanh')
@@ -4521,9 +4838,17 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     gộp trong MỘT lệnh `wmctrl` (không sleep) nên không bị delay.')
     call add(l:L, '     Đổi kích thước: `let g:haoz_win_w = 1600`, `g:haoz_win_h = 900`')
     call add(l:L, '  • `F12`  Copy full file path to clipboard')
+    call add(l:L, '  • THANH CUỘN NGANG: `set guioptions+=b` (bottom scrollbar) trong')
+    call add(l:L, '     khối `has(''gui_running'')`; thanh dọc vẫn giữ nguyên. Thanh')
+    call add(l:L, '     ngang chỉ chạy khi buffer `nowrap` và dòng dài hơn cửa sổ.')
     call add(l:L, '  • `Alt-Z` Toggle line wrap — MẶC ĐỊNH **NOWRAP cho MỌI file**')
     call add(l:L, '     (`set nowrap`; `linebreak` + `breakindent` + `↪` vẫn giữ, chỉ')
-    call add(l:L, '     hiện khi bạn bật wrap.  *.md cũng nowrap — ftplugin đặt lại)')
+    call add(l:L, '     hiện khi bạn bật wrap.  *.md cũng nowrap khi mở lần đầu)')
+    call add(l:L, '  • *.md + AUTOREAD: mặc định md (`nowrap`, `shiftwidth=4`) CHỈ đặt')
+    call add(l:L, '     LẦN ĐẦU buffer được nạp (`s:MdBufferDefaults()` + cờ')
+    call add(l:L, '     `b:haoz_md_defaults`). Trước đây autocmd chạy ở mọi')
+    call add(l:L, '     `BufReadPost`/`WinEnter` nên sau mỗi lần file bị ghi lại từ ngoài,')
+    call add(l:L, '     `wrap` bạn tự bật bị đè về 0. Giờ bật wrap là giữ nguyên.')
     call add(l:L, '')
     call add(l:L, '▶ FONT & TIẾNG VIỆT (GVim)')
     call add(l:L, '  • Font: `JetBrains Mono` -> `Noto Sans Mono` -> `DejaVu Sans Mono`')
@@ -4561,6 +4886,123 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     dạng NFD -> chuẩn hoá NFC bằng python3 + unicodedata.normalize,')
     call add(l:L, '     đọc/ghi file với encoding utf-8 (hoặc dùng: uconv -x any-nfc).')
     call add(l:L, '')
+    call add(l:L, '▶ TOÀN BỘ PHÍM TẮT (sinh từ `maplist()` của chính file này)')
+    call add(l:L, '  • `:HaozKeys` in lại danh sách này từ mapping ĐANG SỐNG;')
+    call add(l:L, '     phần dưới là bản chép lúc viết tài liệu. `→` = phím gõ ->')
+    call add(l:L, '     hành động; `<Plug>` nội bộ của plugin đã bỏ.')
+    call add(l:L, '')
+    call add(l:L, '  ── NORMAL (63 phím) ──')
+    call add(l:L, '    <CR>  ->  :call SplitExpandHandleEnter()<CR>')
+    call add(l:L, '    0  ->  :call GoToTab(0)<CR>')
+    call add(l:L, '    1  ->  :call GoToTab(1)<CR>')
+    call add(l:L, '    2  ->  :call GoToTab(2)<CR>')
+    call add(l:L, '    3  ->  :call GoToTab(3)<CR>')
+    call add(l:L, '    4  ->  :call GoToTab(4)<CR>')
+    call add(l:L, '    5  ->  :call GoToTab(5)<CR>')
+    call add(l:L, '    6  ->  :call GoToTab(6)<CR>')
+    call add(l:L, '    7  ->  :call GoToTab(7)<CR>')
+    call add(l:L, '    8  ->  :call GoToTab(8)<CR>')
+    call add(l:L, '    9  ->  :call GoToTab(9)<CR>')
+    call add(l:L, '    L  ->  :nohlsearch<CR>')
+    call add(l:L, '    N  ->  Nzz')
+    call add(l:L, '    R  ->  R<C-r>=<SID>feedPopup()<CR>')
+    call add(l:L, '    V  ->  <C-v>')
+    call add(l:L, '    \wh  ->  :call WinListFixPanelHeights()<CR>')
+    call add(l:L, '    \wa  ->  :call WinListOpenInAllTabs()<CR>')
+    call add(l:L, '    \W  ->  :call WinListFixWidth()<CR>')
+    call add(l:L, '    \w  ->  :call WinListToggle()<CR>')
+    call add(l:L, '    a  ->  a<C-r>=<SID>feedPopup()<CR>')
+    call add(l:L, '    ch  ->  :call ToggleHaozCommentAtBeginning()<CR>')
+    call add(l:L, '    cc  ->  :call ToggleCommentLine()<CR>')
+    call add(l:L, '    hh  ->  :call ToggleCommentSyntaxHaoz()<CR>')
+    call add(l:L, '    i  ->  i<C-r>=<SID>feedPopup()<CR>')
+    call add(l:L, '    ml  ->  :call ClearAllMarks()<CR>')
+    call add(l:L, '    mh  ->  :call ToggleMarkWord()<CR>')
+    call add(l:L, '    n  ->  nzz')
+    call add(l:L, '    o  ->  <Nop>')
+    call add(l:L, '    wl  ->  :call WinListToggle()<CR>')
+    call add(l:L, '    x  ->  <Nop>')
+    call add(l:L, '    <F1>  ->  :call ToggleVimrcManual()<CR>')
+    call add(l:L, '    <C-S-T>  ->  :call ReopenLastClosed()<CR>')
+    call add(l:L, '    <C-CR>  ->  :call SplitExpandCtrlEnter()<CR>')
+    call add(l:L, '    <F10>  ->  :call ToggleGvimMenuToolbar()<CR>')
+    call add(l:L, '    <Del>  ->  <Nop>')
+    call add(l:L, '    <M-z>  ->  :set wrap!<CR>')
+    call add(l:L, '    <C-U>  ->  :<C-u>call ToggleCase()<CR>')
+    call add(l:L, '    <S-Del>  ->  dd')
+    call add(l:L, '    <C-Z>  ->  u')
+    call add(l:L, '    <Home>  ->  ^')
+    call add(l:L, '    <M-Right>  ->  :call WinListNavRight()<CR>')
+    call add(l:L, '    <M-Left>  ->  :call WinListNavLeft()<CR>')
+    call add(l:L, '    <C-Down>  ->  :tabnext<CR>')
+    call add(l:L, '    <C-Up>  ->  :tabprevious<CR>')
+    call add(l:L, '    <C-S-Left>  ->  vb')
+    call add(l:L, '    <C-S-Right>  ->  vew')
+    call add(l:L, '    <C-Left>  ->  b')
+    call add(l:L, '    <C-Right>  ->  w')
+    call add(l:L, '    <S-End>  ->  v<End>')
+    call add(l:L, '    <S-Home>  ->  v<Home>')
+    call add(l:L, '    <S-Down>  ->  v<Down>')
+    call add(l:L, '    <S-Up>  ->  v<Up>')
+    call add(l:L, '    <S-Right>  ->  v<Right>')
+    call add(l:L, '    <S-Left>  ->  v<Left>')
+    call add(l:L, '    <C-F>  ->  :let @/ = ''\<''.expand(''<cword>'').''\>''<CR>:set hls…')
+    call add(l:L, '    <C-D>  ->  :let @/=''\<''.expand(''<cword>'').''\>''<CR>viw')
+    call add(l:L, '    <C-X>  ->  "+dd')
+    call add(l:L, '    <C-V>  ->  "+p')
+    call add(l:L, '    <C-C>  ->  "+yy')
+    call add(l:L, '    <C-L>  ->  V')
+    call add(l:L, '    <C-A>  ->  ggVG')
+    call add(l:L, '    <F12>  ->  :call CopyFullPath()<CR>')
+    call add(l:L, '    <F5>  ->  :edit!<CR>')
+    call add(l:L, '')
+    call add(l:L, '  ── VISUAL (22 phím) ──')
+    call add(l:L, '    <Tab>  ->  :<C-u>call VisualModeTab()<CR>gv')
+    call add(l:L, '    ch  ->  :<C-u>call ToggleHaozCommentRangeAtBeginning(line…')
+    call add(l:L, '    cc  ->  :<C-u>call ToggleCommentRange(line("''<"), line("''…')
+    call add(l:L, '    hh  ->  :call ToggleCommentSyntaxHaoz()<CR>')
+    call add(l:L, '    mh  ->  :<C-u>call ToggleMarkSelection()<CR>')
+    call add(l:L, '    <C-U>  ->  :<C-u>call ToggleCase()<CR>')
+    call add(l:L, '    <C-Z>  ->  <Esc>u')
+    call add(l:L, '    <S-Tab>  ->  :<C-u>call VisualModeShiftTab()<CR>gv')
+    call add(l:L, '    <C-S-Left>  ->  b')
+    call add(l:L, '    <C-S-Right>  ->  e')
+    call add(l:L, '    <C-Left>  ->  b')
+    call add(l:L, '    <C-Right>  ->  e')
+    call add(l:L, '    <S-End>  ->  <End>')
+    call add(l:L, '    <S-Home>  ->  <Home>')
+    call add(l:L, '    <S-Down>  ->  <Down>')
+    call add(l:L, '    <S-Up>  ->  <Up>')
+    call add(l:L, '    <S-Right>  ->  <Right>')
+    call add(l:L, '    <S-Left>  ->  <Left>')
+    call add(l:L, '    <C-F>  ->  "zy:let @/ = escape(@z, ''/\'')<CR>:set hlsearch<CR>')
+    call add(l:L, '    <C-X>  ->  "+d')
+    call add(l:L, '    <C-V>  ->  "+p')
+    call add(l:L, '    <C-C>  ->  "+y')
+    call add(l:L, '')
+    call add(l:L, '  ── INSERT (17 phím) ──')
+    call add(l:L, '    <C-S-T>  ->  <Esc>:call ReopenLastClosed()<CR>')
+    call add(l:L, '    <C-Z>  ->  <C-o>u')
+    call add(l:L, '    <Home>  ->  <C-o>^')
+    call add(l:L, '    <C-Left>  ->  <C-o>b')
+    call add(l:L, '    <C-Right>  ->  <C-o>w')
+    call add(l:L, '    <C-S-Right>  ->  <S-Right><C-Right>')
+    call add(l:L, '    <C-S-Left>  ->  <S-Left><C-Left>')
+    call add(l:L, '    <S-End>  ->  <C-o>v<End>')
+    call add(l:L, '    <S-Home>  ->  <C-o>v<Home>')
+    call add(l:L, '    <S-Down>  ->  <C-o>v<Down><Left>')
+    call add(l:L, '    <S-Up>  ->  <Left><C-o>v<Up><Right>')
+    call add(l:L, '    <S-Right>  ->  <C-o>v')
+    call add(l:L, '    <S-Left>  ->  <Left><C-o>v')
+    call add(l:L, '    <C-D>  ->  <Esc>viw')
+    call add(l:L, '    <C-V>  ->  <C-r>+')
+    call add(l:L, '    <C-L>  ->  <Esc>V')
+    call add(l:L, '    <F12>  ->  <C-o>:call CopyFullPath()<CR>')
+    call add(l:L, '')
+    call add(l:L, '  ── CMD-LINE (1 phím) ──')
+    call add(l:L, '    <C-V>  ->  <C-r>+')
+    call add(l:L, '')
+    call add(l:L, '')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     return l:L
 endfunction
@@ -4593,5 +5035,52 @@ function! ToggleVimrcManual() abort
     nnoremap <silent> <buffer> q  :call ToggleVimrcManual()<CR>
     nnoremap <silent> <buffer> <F1> :call ToggleVimrcManual()<CR>
 endfunction
+
+function! HaozKeys() abort
+    let l:out = []
+
+    if exists('*maplist')
+        let l:rows = []
+        for l:m in maplist()
+            if get(l:m, 'buffer', 0)
+                continue
+            endif
+            if l:m.lhs =~# '^<Plug>' || l:m.rhs =~# '<Plug>'
+                continue
+            endif
+            call add(l:rows, [l:m.mode, l:m.lhs,
+                \ substitute(l:m.rhs, '<SNR>\d\+_', '', 'g')])
+        endfor
+
+        for l:mode in ['n', 'v', 'x', 'o', 'i', 'c', 't']
+            let l:sel = filter(copy(l:rows), 'v:val[0] ==# l:mode')
+            if empty(l:sel)
+                continue
+            endif
+            call add(l:out, '')
+            call add(l:out, '=== ' . l:mode . ' (' . len(l:sel) . ') ===')
+            for l:r in l:sel
+                call add(l:out, printf('  %-24s %s', l:r[1], l:r[2]))
+            endfor
+        endfor
+    else
+        redir => l:raw
+        silent map
+        silent map!
+        redir END
+        let l:out = split(l:raw, "\n")
+    endif
+
+    execute 'botright split __HaozKeys__'
+    setlocal buftype=nofile bufhidden=wipe noswapfile nobuflisted
+    setlocal wrap linebreak nonumber norelativenumber nolist
+    setlocal modifiable
+    silent! %delete _
+    silent! call setline(1, l:out)
+    setlocal nomodifiable nomodified
+    silent! setlocal statusline=\ 【All\ keymaps】\ q\ to\ close
+    nnoremap <silent> <buffer> q :close<CR>
+endfunction
+command! HaozKeys call HaozKeys()
 
 nnoremap <silent> <F1> :call ToggleVimrcManual()<CR>
