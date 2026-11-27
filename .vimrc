@@ -331,6 +331,7 @@ if !has('gui_running') && has('termguicolors')
     set termguicolors
 endif
 
+runtime! plugin/verilog_systemverilog.vim " added to use for vim 9.1
 syntax enable
 syntax on
 set background=dark
