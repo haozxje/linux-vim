@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.141                                                        ║
+" ║  Version  : 7.144                                                        ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -122,7 +122,6 @@ function! s:HaozAutoIndent() abort
     for l:line in getline(1, l:scan)
         let l:lead = matchstr(l:line, '^\s\+')
         if l:lead ==# ''
-            let l:prev = -1
             continue
         endif
         if strpart(l:lead, 0, 1) ==# "\t"
@@ -143,21 +142,19 @@ function! s:HaozAutoIndent() abort
     if l:tabs + l:spaces < 4
         return
     endif
-    let l:unit = 4
-    let l:best = 0
-    for l:v in values(l:diff)
-        if l:v > l:best
-            let l:best = l:v
+    " Bề rộng thụt = DELTA hay gặp nhất (hoà thì lấy số nhỏ). Dùng CHUNG quy
+    " tắc với `s:DetectIndent()` của statusline -> hai nơi không bao giờ lệch
+    " nhau (trước đây: 1 dòng lệch là GCD tụt xuống 2, statusline báo [2sp]
+    " trong khi indent thật 4).
+    let l:unit  = 4
+    let l:bestu = -1
+    for l:u in [2, 3, 4, 5, 6, 7, 8]
+        let l:c = get(l:diff, l:u, 0)
+        if l:c > l:bestu
+            let l:bestu = l:c
+            let l:unit  = l:u
         endif
     endfor
-    if l:best > 0
-        for l:u in [2, 3, 4, 5, 6, 7, 8]
-            if get(l:diff, l:u, 0) * 2 >= l:best
-                let l:unit = l:u
-                break
-            endif
-        endfor
-    endif
     let l:use_tabs = l:tabs > l:spaces
     if l:use_tabs
         setlocal noexpandtab
@@ -580,27 +577,33 @@ set statusline+=%{StatusFiletype()}
 set statusline+=[%{g:haoz_vimrc_version}]
 
 function! s:DetectIndent() abort
-    let l:last    = min([line('$'), 400])
-    let l:tabs    = 0
-    let l:spaces  = 0
-    let l:gcd     = 0
+    let l:last   = min([line('$'), 400])
+    let l:tabs   = 0
+    let l:spaces = 0
+    let l:diff   = {}
+    let l:prev   = -1
 
     for l:lnum in range(1, l:last)
         let l:lead = matchstr(getline(l:lnum), '^\s\+')
-        if l:lead ==# '' | continue | endif
+        if l:lead ==# ''
+            continue
+        endif
 
         if stridx(l:lead, "\t") >= 0
             let l:tabs += 1
-        else
-            let l:spaces += 1
-            let l:n = strlen(l:lead)
-            let l:a = l:gcd
-            let l:b = l:n
-            while l:b != 0
-                let [l:a, l:b] = [l:b, l:a % l:b]
-            endwhile
-            let l:gcd = l:a
+            let l:prev = -1
+            continue
         endif
+
+        let l:spaces += 1
+        let l:w = strlen(l:lead)
+        if l:prev >= 0 && l:w > l:prev
+            let l:d = l:w - l:prev
+            if l:d >= 2 && l:d <= 8
+                let l:diff[l:d] = get(l:diff, l:d, 0) + 1
+            endif
+        endif
+        let l:prev = l:w
     endfor
 
     let l:total = l:tabs + l:spaces
@@ -618,8 +621,31 @@ function! s:DetectIndent() abort
         return printf('[%dtb]', &tabstop)
     endif
 
-    let l:step = (l:gcd >= 2) ? l:gcd : &shiftwidth
-    return printf('[%dsp]', l:step)
+    " Bề rộng thụt = DELTA hay gặp nhất giữa các dòng liên tiếp (đúng như
+    " s:HaozAutoIndent đang dùng). Trước đây lấy GCD của mọi độ thụt: file
+    " thụt 4 nhưng có một dòng 6 (hoặc 2) thì GCD = 2 -> statusline báo
+    " `[2sp]` trong khi indent thật là 4.
+    let l:best = 0
+    for l:v in values(l:diff)
+        if l:v > l:best
+            let l:best = l:v
+        endif
+    endfor
+
+    let l:unit  = 0
+    let l:bestu = -1
+    for l:u in [2, 3, 4, 5, 6, 7, 8]
+        let l:c = get(l:diff, l:u, 0)
+        if l:c > l:bestu
+            let l:bestu = l:c
+            let l:unit  = l:u
+        endif
+    endfor
+    if l:unit == 0
+        let l:unit = &shiftwidth > 0 ? &shiftwidth : 4
+    endif
+
+    return printf('[%dsp]', l:unit)
 endfunction
 
 function! StatusIndent() abort
@@ -4745,6 +4771,12 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     gọn được cache theo lần dựng')
     call add(l:L, '  • STATUSLINE `[Nsp]`: đang Insert thì quét tối đa 1 lần/giây')
     call add(l:L, '     (trước: quét 400 dòng cho mỗi phím); rời Insert quét lại ngay')
+    call add(l:L, '  • `[Nsp]` và `shiftwidth` GIỜ DÙNG CHUNG một quy tắc (v7.144):')
+    call add(l:L, '     bề rộng = DELTA hay gặp nhất giữa 2 dòng liên tiếp có thụt')
+    call add(l:L, '     tăng (2–8), hoà thì lấy số nhỏ; dòng TRỐNG không cắt mạch.')
+    call add(l:L, '     Trước đây statusline lấy GCD -> file thụt 4 mà có 1 dòng 6 là')
+    call add(l:L, '     GCD = 2 -> hiện `[2sp]` sai; dòng trống sau mỗi dòng (kiểu')
+    call add(l:L, '     note .md) làm mất hết delta -> cũng rơi về 2.')
     call add(l:L, '  • Snapshot layout cho Ctrl-Shift-T vẫn chạy, tự chặn 1 lần/200ms')
     call add(l:L, '  • INDENTLINE (vạch `┆`): plugin tự TẮT khi FileType chạy lại (file')
     call add(l:L, '     reload/`:e`) mà không tự bật lại -> vạch biến mất.  Đã thêm')
