@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.117                                                        ║
+" ║  Version  : 7.118                                                        ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -910,15 +910,14 @@ augroup autosave
     autocmd!
     autocmd BufRead      * if &filetype == "" | setlocal ft=log | endif
     autocmd TextChanged  * call s:AutoSaveSchedule()
-    autocmd InsertLeavePre * call s:AutoSaveNow()
-    autocmd InsertLeave  * call s:AutoSaveNow()
-    autocmd BufLeave     * call s:AutoSaveNow(expand('<abuf>'))
-    autocmd WinLeave     * call s:AutoSaveNow(expand('<abuf>'))
-    autocmd TabLeave     * call s:AutoSaveNow(expand('<abuf>'))
-    autocmd BufWinLeave  * call s:AutoSaveNow(expand('<abuf>'))
-    autocmd FocusLost    * call s:AutoSaveNow()
-    autocmd VimLeavePre  * call s:AutoSaveNow()
-    autocmd CursorHold,CursorHoldI * call s:AutoSaveNow()
+    for s:ev in ['InsertLeavePre', 'InsertLeave', 'BufLeave', 'WinLeave',
+                \ 'TabLeave', 'BufWinLeave', 'FocusLost', 'VimLeavePre',
+                \ 'CursorHold', 'CursorHoldI']
+        if exists('##' . s:ev)
+            execute "autocmd " . s:ev . " * call s:AutoSaveNow(expand('<abuf>'))"
+        endif
+    endfor
+    unlet! s:ev
 augroup END
 
 let s:autosave_timer = -1
@@ -4222,6 +4221,9 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     (`g:autosave_delay`, sửa tiếp thì timer reset); InsertLeavePre,')
     call add(l:L, '     InsertLeave, BufLeave, WinLeave, TabLeave, BufWinLeave,')
     call add(l:L, '     FocusLost, VimLeavePre, CursorHold(I) ghi NGAY buffer VỪA rời.')
+    call add(l:L, '     Danh sách event được đăng ký bằng vòng lặp + `exists(''##Event'')`')
+    call add(l:L, '     -> Vim cũ thiếu `InsertLeavePre` (chỉ có từ Vim 8.2) KHÔNG còn')
+    call add(l:L, '     báo `E216` và KHÔNG cắt phần còn lại của file .vimrc.')
     call add(l:L, '     -> Nhấn Esc là file trên đĩa đã đổi NGAY, không chờ 1 giây.')
     call add(l:L, '  • DIFF/GDIFF: mỗi sự kiện rời cửa sổ/tab đều ghi buffer đang sửa')
     call add(l:L, '     (`<abuf>` được truyền vào), và timer còn fallback: nếu buffer')
