@@ -125,6 +125,21 @@ một số phím tắt riêng của GVim sẽ không có.
 | `<leader>wa` | mở panel ở mọi tab |
 | `<leader>wh` | chia lại chiều cao panel (50/50 khi có NERDTree) |
 
+**Nhảy file: đúng SPLIT, và con trỏ không nằm lại panel (v7.141)**
+
+- `s:WinListWindowInTab()` chọn cửa sổ có **số hiển thị trùng dòng entry**
+  trong tab ghi trên header (không phải "cửa sổ đầu tiên chứa file đó"), rồi
+  mới fallback tab hiện tại.
+- `s:WinListRefocusTick()` — nếu bạn chỉ click vào panel mà không double-click,
+  sau `g:winlist_refocus_ms` (mặc định **1500 ms**) con trỏ tự về cửa sổ nội
+  dung. Không cần double-click lần thứ hai để "thoát" panel.
+- `s:WinListReassertTick()` bám lại buffer đích 4 nhịp (~750 ms) sau cú nhảy,
+  và panel của tab đích bị **hoãn 500 ms** (`s:EnsureWinListInTab`) để
+  `topleft split` không chen ngang đúng lúc nhảy — trước đây chính nó làm con
+  trỏ dừng ở file khác (b.c thay vì a.c).
+- `CombinedPanelOpen()` trả con trỏ về **đúng cửa sổ cũ** (`prev_win + 1`, vì
+  panel luôn chèn ở vị trí đầu), không dùng "first content window".
+
 **Bề ngang panel được giữ cứng (v7.131)**: `s:WinListEnforceWidth()` so
 `winwidth()` với `s:ColumnWidth()`, lệch là `vertical resize` lại (bọc
 `noautocmd` + khoá split widths nên không giật). Nó chạy từ
@@ -233,7 +248,7 @@ cho buffer markdown đang mở.
 ## 9. Statusline
 
 ```
-~/.vimrc                                    [CL12:TL431][4sp][md][V7.131]
+~/.vimrc                                    [CL12:TL431][4sp][md][V7.141]
 ```
 
 | Khối | Nghĩa |
