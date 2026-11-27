@@ -119,14 +119,66 @@ một số phím tắt riêng của GVim sẽ không có.
 |---|---|
 | `wl` | bật/tắt WinList |
 | `Ctrl-B` | bật/tắt NERDTree |
-| `Enter` / double-click (trong panel) | mở file / nhảy tới entry |
+| `Enter` / double-click (trong panel) | mở file / nhảy tới entry (**click đơn chỉ dời con trỏ**) |
 | `q` / `r` | đóng panel / refresh |
 | `<leader>W` | đồng bộ lại bề rộng panel |
 | `<leader>wa` | mở panel ở mọi tab |
 | `<leader>wh` | chia lại chiều cao panel (50/50 khi có NERDTree) |
 
+**Bề ngang panel được giữ cứng (v7.131)**: `s:WinListEnforceWidth()` so
+`winwidth()` với `s:ColumnWidth()`, lệch là `vertical resize` lại (bọc
+`noautocmd` + khoá split widths nên không giật). Nó chạy từ
+`WinEnter`/`BufWinEnter`/`TabEnter`/`VimResized` (debounce 40 ms) và thêm
+`CursorHold` làm lưới an toàn (chỉ so sánh, rất rẻ) → `:vsplit`, `:only`, kéo
+chuột chia cửa sổ, đổi tab, bật/tắt NERDTree đều đưa panel về đúng cỡ. Tắt:
+`let g:winlist_fix_width = 0`.
+
 Lệnh: `:WinList`, `:WinListClose`, `:WinListFix`, `:WinListRefresh`,
 `:WinListAllTabs`, `:WinListFixH`.
+
+**Double-click trong panel** không còn phụ thuộc vào `<2-LeftMouse>` của Vim mà
+**tự phát hiện**: `<LeftMouse>` map sang chính nó rồi gọi `s:WinListClick()`;
+hai click trên cùng một dòng trong khoảng `g:winlist_dblclick_ms` (**mặc định
+1200 ms**, cố ý không dùng `&mousetime` 500 ms vì VNC/NFS làm 2 click tới chậm
+hơn ngưỡng của Vim) thì nhảy. Click vào **dòng path** cũng nhảy — hàm tự lùi lên
+dòng entry gần nhất (≤ 3 dòng). `s:WinListJumpEntry()` chặn nhảy hai lần trong
+0.25 s nên `<2-LeftMouse>` (nếu Vim vẫn bắn) không làm nhảy đúp.
+
+**Panel không có Select/Visual bằng chuột** (v7.123): `setlocal selectmode=` +
+`<LeftDrag>`/`<LeftRelease>`/`<C-LeftMouse>` và `x<LeftMouse>` đều map `<Nop>`
+→ kéo chuột không tạo vùng chọn, Ctrl-click không mở file oan. Chỉ
+**double-click** hoặc **`Enter`** mới mở file; click đơn chỉ dời con trỏ trong
+panel.
+
+**Nhảy file: nhanh và đúng cửa sổ (v7.125)**
+
+- Tìm cửa sổ đích bằng cách **quét buffer theo tên file + đuôi đường dẫn**
+  (`s:WinListBestBuffer()`), rồi `bufwinnr()` trong tab hiện tại → tab in trên
+  header → các tab còn lại. Không dùng `win_gotoid()`/`getbufinfo()` nên chạy
+  được cả trên Vim 8.0 cũ (trước đây thiếu 2 hàm đó là cửa sổ đích bị bỏ qua,
+  tab nhảy mà con trỏ vẫn nằm ở panel).
+- Nhảy xong **giữ yên panel 0,2 s** (`s:WinListGoQuiet()`), rồi hẹn **một lần
+  dựng lại panel sau 300 ms** bằng timer (`s:WinListAfterJumpRefresh()`) để cập
+  nhật dấu `>` / `◀` active. Trước đây chặn 0,8 s nên panel **không cập nhật**;
+  còn dựng lại ngay lập tức thì lag trên NFS. Đo thực tế: **0,6 ms** cho cú nhảy,
+  panel vẫn đúng dấu active sau 500 ms.
+- Dòng entry **đang active** được đệm space cho kín nền xanh (`> 1: b.c␣␣␣…`);
+  `s:WinListEntryName()` cắt khoảng trắng đuôi + ` [+]` trước khi so tên file —
+  không cắt thì `fnamemodify(':t')` ra `'b.c      '` và **không khớp buffer nào**,
+  nên click vào chính dòng active sẽ không nhảy.
+
+Không nhảy được thì đứng trong panel chạy `:WinListDiag` — in ra `filetype`,
+mapping `<LeftMouse>`/`<2-LeftMouse>` có tồn tại không, dòng đang đứng, **tên
+file + thư mục parse được**, **buffer khớp được (`best buffer`)**, `bufwinnr`,
+`b:winlist_hdr_tids`, và số click đã đếm.
+
+**Bug đã sửa (v7.121)** — `Enter`/double-click trong panel không nhảy dù mapping
+vẫn bắn: `WinListJump()` cần `b:winlist_hdr_tids` để biết dòng header thuộc tab
+nào, nhưng biến đó **chỉ** được set trong `s:WinListRefresh()`; panel thật lại
+được dựng bằng `WinListRefreshAllTabs()` (đường chạy ở gần như mọi event) → map
+rỗng → `real_tab = -1` → hàm thoát ngay. Vá: set `b:winlist_hdr_tids` ở **cả
+hai** đường render, và fallback lấy số tab in trên header (`=== Tab N`) khi map
+rỗng.
 
 ---
 
@@ -181,7 +233,7 @@ cho buffer markdown đang mở.
 ## 9. Statusline
 
 ```
-~/.vimrc                                    [CL12:TL431][4sp][md][V7.117]
+~/.vimrc                                    [CL12:TL431][4sp][md][V7.131]
 ```
 
 | Khối | Nghĩa |
@@ -215,6 +267,12 @@ Nền đổi theo mode: `#001933` (Normal), cam `#661900` (Insert), xanh lá
 | **Auto-format markdown** | **tắt** | bật: `let g:md_autoformat = 1` |
 | `autoread` của Vim | **tắt** | (để tránh reload liên tục trên NFS) |
 
+**File `.md` và autoread (v7.125)**: mặc định của md (`nowrap`, `shiftwidth=4`)
+chỉ được đặt **lần đầu** buffer được nạp (`s:MdBufferDefaults()` + cờ
+`b:haoz_md_defaults`). Trước đây autocmd chạy ở **mọi** `BufReadPost`/`WinEnter`
+nên sau mỗi lần file bị ghi lại từ ngoài (Claude sửa file chẳng hạn), `wrap` bạn
+tự bật bị đè về 0. Giờ bật wrap là giữ nguyên qua reload.
+
 \* `g:autosave_enable = 0` tắt hẳn auto-save; `g:autosave_delay` là số ms chờ
 sau thay đổi cuối (mặc định `1000`; đặt `0` cũng tắt). Tắt rồi thì chỉ ghi khi
 bạn tự `:w`.
@@ -227,12 +285,22 @@ có fallback `s:AutoSaveWrite()`: nếu buffer đó không còn là buffer hiệ
 nó tự `noautocmd` nhảy sang cửa sổ/tab đang hiển thị buffer (kể cả tab khác),
 ghi, rồi trả lại đúng tab/cửa sổ cũ.
 
+**Tương thích Vim**: danh sách event đó được đăng ký bằng vòng lặp +
+`exists('##Event')`, nên Vim cũ thiếu `InsertLeavePre` (chỉ có từ Vim 8.2)
+**không** báo `E216` và **không** bị cắt phần còn lại của `.vimrc`. Trên Vim 9.1
+mọi event đều có → ghi sớm nhất có thể.
+
 ---
 
 ## 11. Font & tiếng Việt (GVim)
 
 Thứ tự font (tự lùi nếu thiếu): **JetBrains Mono NL → JetBrains Mono → Noto Sans Mono → DejaVu Sans Mono**,
 cỡ **5pt**. Sửa trong `.vimrc` (dòng `guifont`) hoặc `.gvimrc`.
+
+**Thanh cuộn ngang (v7.125)**: `set guioptions+=b` trong khối
+`has('gui_running')` → GVim có thêm scrollbar ngang ở đáy cửa sổ (thanh dọc vẫn
+giữ nguyên). Thanh ngang chỉ chạy khi buffer ở `nowrap` **và** dòng dài hơn bề
+ngang cửa sổ; file đang `wrap` thì thanh này không có gì để cuộn.
 
 ### Cài font đóng gói sẵn
 Repo có `.vim/fonts.b64` (554 KB) — **một file text** chứa 4 nét **JetBrains Mono NL**
@@ -494,3 +562,132 @@ khối, không phân biệt heading hay bảng. **Dòng cuối file không có d
 | 2. | Gộp hàng gây thành hàng mới | không tự động hoá bảng có ô gãy |
 | 3. | Bảng dùng `\|` với separator ngắn | dùng dấu cách trong fence thay thế |
 | 4. | Báo xong khi chưa kiểm STT | chạy đủ sáu bước ở mục 7.1 |
+
+## 17. Toàn bộ phím tắt
+
+Sinh từ `maplist()` của chính `.vimrc` (bỏ các `<Plug>` nội bộ của plugin).
+In lại từ mapping đang sống: `:HaozKeys`.
+
+### NORMAL (63 phím)
+
+| Phím | Việc |
+|---|---|
+| `<CR>` | `:call SplitExpandHandleEnter()<CR>` |
+| `0` | `:call GoToTab(0)<CR>` |
+| `1` | `:call GoToTab(1)<CR>` |
+| `2` | `:call GoToTab(2)<CR>` |
+| `3` | `:call GoToTab(3)<CR>` |
+| `4` | `:call GoToTab(4)<CR>` |
+| `5` | `:call GoToTab(5)<CR>` |
+| `6` | `:call GoToTab(6)<CR>` |
+| `7` | `:call GoToTab(7)<CR>` |
+| `8` | `:call GoToTab(8)<CR>` |
+| `9` | `:call GoToTab(9)<CR>` |
+| `L` | `:nohlsearch<CR>` |
+| `N` | `Nzz` |
+| `R` | `R<C-r>=<SID>feedPopup()<CR>` |
+| `V` | `<C-v>` |
+| `\wh` | `:call WinListFixPanelHeights()<CR>` |
+| `\wa` | `:call WinListOpenInAllTabs()<CR>` |
+| `\W` | `:call WinListFixWidth()<CR>` |
+| `\w` | `:call WinListToggle()<CR>` |
+| `a` | `a<C-r>=<SID>feedPopup()<CR>` |
+| `ch` | `:call ToggleHaozCommentAtBeginning()<CR>` |
+| `cc` | `:call ToggleCommentLine()<CR>` |
+| `hh` | `:call ToggleCommentSyntaxHaoz()<CR>` |
+| `i` | `i<C-r>=<SID>feedPopup()<CR>` |
+| `ml` | `:call ClearAllMarks()<CR>` |
+| `mh` | `:call ToggleMarkWord()<CR>` |
+| `n` | `nzz` |
+| `o` | `<Nop>` |
+| `wl` | `:call WinListToggle()<CR>` |
+| `x` | `<Nop>` |
+| `<F1>` | `:call ToggleVimrcManual()<CR>` |
+| `<C-S-T>` | `:call ReopenLastClosed()<CR>` |
+| `<C-CR>` | `:call SplitExpandCtrlEnter()<CR>` |
+| `<F10>` | `:call ToggleGvimMenuToolbar()<CR>` |
+| `<Del>` | `<Nop>` |
+| `<M-z>` | `:set wrap!<CR>` |
+| `<C-U>` | `:<C-u>call ToggleCase()<CR>` |
+| `<S-Del>` | `dd` |
+| `<C-Z>` | `u` |
+| `<Home>` | `^` |
+| `<M-Right>` | `:call WinListNavRight()<CR>` |
+| `<M-Left>` | `:call WinListNavLeft()<CR>` |
+| `<C-Down>` | `:tabnext<CR>` |
+| `<C-Up>` | `:tabprevious<CR>` |
+| `<C-S-Left>` | `vb` |
+| `<C-S-Right>` | `vew` |
+| `<C-Left>` | `b` |
+| `<C-Right>` | `w` |
+| `<S-End>` | `v<End>` |
+| `<S-Home>` | `v<Home>` |
+| `<S-Down>` | `v<Down>` |
+| `<S-Up>` | `v<Up>` |
+| `<S-Right>` | `v<Right>` |
+| `<S-Left>` | `v<Left>` |
+| `<C-F>` | `:let @/ = '\<'.expand('<cword>').'\>'<CR>:set hlsearch<CR>` |
+| `<C-D>` | `:let @/='\<'.expand('<cword>').'\>'<CR>viw` |
+| `<C-X>` | `"+dd` |
+| `<C-V>` | `"+p` |
+| `<C-C>` | `"+yy` |
+| `<C-L>` | `V` |
+| `<C-A>` | `ggVG` |
+| `<F12>` | `:call CopyFullPath()<CR>` |
+| `<F5>` | `:edit!<CR>` |
+
+### VISUAL (22 phím)
+
+| Phím | Việc |
+|---|---|
+| `<Tab>` | `:<C-u>call VisualModeTab()<CR>gv` |
+| `ch` | `:<C-u>call ToggleHaozCommentRangeAtBeginning(line("'<"), line("'>"))<CR>` |
+| `cc` | `:<C-u>call ToggleCommentRange(line("'<"), line("'>"))<CR>` |
+| `hh` | `:call ToggleCommentSyntaxHaoz()<CR>` |
+| `mh` | `:<C-u>call ToggleMarkSelection()<CR>` |
+| `<C-U>` | `:<C-u>call ToggleCase()<CR>` |
+| `<C-Z>` | `<Esc>u` |
+| `<S-Tab>` | `:<C-u>call VisualModeShiftTab()<CR>gv` |
+| `<C-S-Left>` | `b` |
+| `<C-S-Right>` | `e` |
+| `<C-Left>` | `b` |
+| `<C-Right>` | `e` |
+| `<S-End>` | `<End>` |
+| `<S-Home>` | `<Home>` |
+| `<S-Down>` | `<Down>` |
+| `<S-Up>` | `<Up>` |
+| `<S-Right>` | `<Right>` |
+| `<S-Left>` | `<Left>` |
+| `<C-F>` | `"zy:let @/ = escape(@z, '/\')<CR>:set hlsearch<CR>` |
+| `<C-X>` | `"+d` |
+| `<C-V>` | `"+p` |
+| `<C-C>` | `"+y` |
+
+### INSERT (17 phím)
+
+| Phím | Việc |
+|---|---|
+| `<C-S-T>` | `<Esc>:call ReopenLastClosed()<CR>` |
+| `<C-Z>` | `<C-o>u` |
+| `<Home>` | `<C-o>^` |
+| `<C-Left>` | `<C-o>b` |
+| `<C-Right>` | `<C-o>w` |
+| `<C-S-Right>` | `<S-Right><C-Right>` |
+| `<C-S-Left>` | `<S-Left><C-Left>` |
+| `<S-End>` | `<C-o>v<End>` |
+| `<S-Home>` | `<C-o>v<Home>` |
+| `<S-Down>` | `<C-o>v<Down><Left>` |
+| `<S-Up>` | `<Left><C-o>v<Up><Right>` |
+| `<S-Right>` | `<C-o>v` |
+| `<S-Left>` | `<Left><C-o>v` |
+| `<C-D>` | `<Esc>viw` |
+| `<C-V>` | `<C-r>+` |
+| `<C-L>` | `<Esc>V` |
+| `<F12>` | `<C-o>:call CopyFullPath()<CR>` |
+
+### CMD-LINE (1 phím)
+
+| Phím | Việc |
+|---|---|
+| `<C-V>` | `<C-r>+` |
+
