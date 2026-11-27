@@ -248,7 +248,7 @@ cho buffer markdown đang mở.
 ## 9. Statusline
 
 ```
-~/.vimrc                                    [CL12:TL431][4sp][md][V7.141]
+~/.vimrc                                    [CL12:TL431][4sp][md][V7.144]
 ```
 
 | Khối | Nghĩa |
@@ -281,6 +281,17 @@ Nền đổi theo mode: `#001933` (Normal), cam `#661900` (Insert), xanh lá
 | **Tự nạp lại file** khi file bị ghi từ ngoài (chỉ khi buffer không có sửa chưa ghi) | bật | `let g:haoz_checktime_safe = 0` |
 | **Auto-format markdown** | **tắt** | bật: `let g:md_autoformat = 1` |
 | `autoread` của Vim | **tắt** | (để tránh reload liên tục trên NFS) |
+
+**Đo bề rộng thụt (v7.144)** — `s:HaozAutoIndent()` (đặt `shiftwidth` thật) và
+`s:DetectIndent()` (số hiện trên statusline `[Nsp]`) dùng **cùng một quy tắc**:
+
+1. Với mỗi cặp dòng liên tiếp có thụt **tăng**, ghi nhận delta (2–8).
+2. Bề rộng = delta **xuất hiện nhiều nhất**; hoà thì lấy số nhỏ.
+3. Dòng trống **không** cắt mạch so sánh — note `.md` của bạn có dòng trống sau
+   mỗi dòng nội dung, trước đây chính chỗ này làm mất hết delta nên rơi về 2.
+
+Trước đây statusline lấy **GCD** của mọi độ thụt: file thụt 4 mà có một dòng 6
+(hoặc 2) thì GCD = 2 → báo `[2sp]` trong khi indent thật là 4.
 
 **File `.md` và autoread (v7.125)**: mặc định của md (`nowrap`, `shiftwidth=4`)
 chỉ được đặt **lần đầu** buffer được nạp (`s:MdBufferDefaults()` + cờ
