@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.131                                                        ║
+" ║  Version  : 7.141                                                        ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -1919,6 +1919,60 @@ function! s:WinListWidthTick(...) abort
     silent! call s:WinListEnforceWidth()
 endfunction
 
+let s:wl_refocus_timer = -1
+
+function! s:WinListContentWindow() abort
+    if WinListIsOpenAnywhere()
+        let l:bn = get(g:winlist_last_active, tabpagenr(), -1)
+        if l:bn > 0
+            let l:w = bufwinnr(l:bn)
+            if l:w != -1 && l:w != bufwinnr(WinListBufName())
+                return l:w
+            endif
+        endif
+    endif
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsWinList(l:bn) && !WinListIsNERDTree(l:bn)
+            return l:i
+        endif
+    endfor
+    return -1
+endfunction
+
+function! s:WinListRefocusSoon() abort
+    if s:wl_refocus_timer != -1
+        call timer_stop(s:wl_refocus_timer)
+    endif
+    let s:wl_refocus_timer = timer_start(get(g:, 'winlist_refocus_ms', 1500),
+        \ {-> s:WinListRefocusTick()})
+endfunction
+
+function! s:WinListRefocusTick(...) abort
+    let s:wl_refocus_timer = -1
+    " Hết "thời gian ghim": bỏ buffer đích để lần mở panel sau không bị kéo
+    " về file cũ.
+    let s:wl_last_target_buf = -1
+    " còn đang trong panel mới làm gì đó
+    if bufnr('%') != bufnr(WinListBufName())
+        return
+    endif
+    if mode() =~# '^[iRvVsSt!]'
+        return
+    endif
+    " đang giữa 2 cú click của double-click -> để yên
+    if !empty(s:wl_click_time)
+        \ && reltimefloat(reltime(s:wl_click_time)) * 1000.0
+        \    < get(g:, 'winlist_dblclick_ms', 1200) + 100
+        return
+    endif
+    let l:w = s:WinListContentWindow()
+    if l:w == -1
+        return
+    endif
+    execute 'noautocmd ' . l:w . 'wincmd w'
+endfunction
+
 augroup WinListFixedWidth
     autocmd!
     autocmd VimResized,WinEnter,BufWinEnter,TabEnter * silent! call s:WinListWidthSoon()
@@ -1926,6 +1980,11 @@ augroup WinListFixedWidth
     " mọi thao tác (:vsplit, :only, kéo chuột, đổi tab, NERDTree) đều kéo
     " WinList về đúng cỡ của nó.
     autocmd CursorHold,CursorHoldI * silent! call s:WinListEnforceWidth()
+    " KHÔNG để con trỏ "ở lại" panel: vào panel bằng chuột mà không làm gì
+    " thì sau `g:winlist_refocus_ms` (mặc định 1500ms) con trỏ tự về cửa sổ
+    " nội dung của tab hiện tại. Trong lúc chờ, double-click (1200ms) và
+    " `Enter` vẫn dùng được bình thường.
+    autocmd WinEnter * if &filetype ==# 'winlist' | silent! call s:WinListRefocusSoon() | endif
 augroup END
 
 function! WinListFixPanelHeights() abort
@@ -2244,6 +2303,7 @@ let s:wl_last_refresh  = reltime()
 let s:wl_refresh_timer = -1
 let s:wl_quiet_until   = []
 let s:wl_after_jump_timer = -1
+let s:wl_reassert_left   = 0
 
 function! WinListRefreshSoon() abort
     if g:winlist_opening || g:panel_opening || g:netrw_expanding
@@ -2333,6 +2393,11 @@ function! CombinedPanelOpen() abort
         return
     endif
 
+    " Nhớ CỬA SỔ đang đứng trước khi dựng panel. Panel luôn chèn vào vị trí
+    " ĐẦU (topleft) nên cửa sổ cũ bị đẩy lùi đúng 1 số -> trả về đúng cửa sổ
+    " đó. Trước đây trả về "anchor/first content window" nên con trỏ nhảy
+    " sang file khác (b.c thay vì a.c) ngay sau khi double-click ở panel.
+    let l:prev_win = winnr()
     let g:panel_opening   = 1
     let g:winlist_opening = 1
 
@@ -2345,9 +2410,17 @@ function! CombinedPanelOpen() abort
 
         let g:winlist_tab_open[tabpagenr()] = 1
 
-        let l:back = WinListFindAnchorWin()
-        if l:back != -1
+        let l:back = l:prev_win + 1
+        if l:back > winnr('$')
+            let l:back = winnr('$')
+        endif
+        if l:back >= 1 && !WinListIsWinList(winbufnr(l:back))
             execute 'noautocmd ' . l:back . 'wincmd w'
+        else
+            let l:alt = WinListFindAnchorWin()
+            if l:alt != -1
+                execute 'noautocmd ' . l:alt . 'wincmd w'
+            endif
         endif
     finally
         let g:panel_opening   = 0
@@ -2621,17 +2694,10 @@ endfunction
 let s:wl_click_time = []
 let s:wl_click_line = -1
 let s:wl_click_count = 0
+let s:wl_click_retry = 0
 
-function! s:WinListClick() abort
-    let l:lnum = s:WinListEntryLine(line('.'))
-
-    if l:lnum <= 0 && exists('*getmousepos')
-        let l:mpos = getmousepos()
-        if get(l:mpos, 'winid', 0) == win_getid() && get(l:mpos, 'line', 0) > 0
-            let l:lnum = s:WinListEntryLine(l:mpos.line)
-        endif
-    endif
-
+function! s:WinListClickRecord(lnum) abort
+    let l:lnum = s:WinListEntryLine(a:lnum)
     if l:lnum <= 0
         return
     endif
@@ -2649,6 +2715,42 @@ function! s:WinListClick() abort
 
     let s:wl_click_time = reltime()
     let s:wl_click_line = l:lnum
+endfunction
+
+function! s:WinListClickRetry(...) abort
+    let s:wl_click_retry = 0
+    if bufnr('%') != bufnr(WinListBufName())
+        return
+    endif
+    if mode() =~# '^[iRvVsSt!]'
+        return
+    endif
+    call s:WinListClickRecord(line('.'))
+endfunction
+
+function! s:WinListClick() abort
+    let l:lnum = s:WinListEntryLine(line('.'))
+
+    if l:lnum <= 0 && exists('*getmousepos')
+        let l:mpos = getmousepos()
+        if get(l:mpos, 'winid', 0) == win_getid() && get(l:mpos, 'line', 0) > 0
+            let l:lnum = s:WinListEntryLine(l:mpos.line)
+        endif
+    endif
+
+    if l:lnum > 0
+        call s:WinListClickRecord(l:lnum)
+        return
+    endif
+
+    " Cú click ĐẦU TIÊN vào panel: Vim xử lý mapping TRƯỚC khi chuyển cửa sổ
+    " (và `getmousepos()` chỉ có từ Vim 8.1), nên lúc này con trỏ vẫn ở file
+    " cũ -> chưa xác định được dòng entry. Thử lại sau 25ms, lúc panel đã là
+    " buffer hiện tại, để ghi nhận cú click này.
+    if s:wl_click_retry == 0
+        let s:wl_click_retry = 1
+        call timer_start(25, {-> s:WinListClickRetry()})
+    endif
 endfunction
 
 function! WinListDiag() abort
@@ -2724,54 +2826,97 @@ function! s:WinListBestBuffer(name, dir) abort
     return l:best
 endfunction
 
-function! s:WinListGoWindow(nr, prefer_tab) abort
-    let l:w = bufwinnr(a:nr)
+function! s:WinListWindowInTab(nr, display_idx) abort
+    let l:count = 0
+    let l:fallback = -1
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if WinListIsWinList(l:bn) || WinListIsNERDTree(l:bn)
+            continue
+        endif
+        let l:count += 1
+        if l:bn != a:nr
+            continue
+        endif
+        if l:fallback == -1
+            let l:fallback = l:i
+        endif
+        if a:display_idx <= 0 || l:count == a:display_idx
+            return l:i
+        endif
+    endfor
+    return l:fallback
+endfunction
+
+let s:wl_last_target_buf = -1
+
+function! s:WinListGoWindow(nr, prefer_tab, display_idx) abort
+    " Tab ghi trên header TRƯỚC (đó mới là tab mà entry thuộc về), rồi mới
+    " tab hiện tại. Trong tab, chọn đúng CỬA SỔ SPLIT có số thứ tự trùng với
+    " số hiển thị trên panel — không chỉ "file nào chứa buffer này".
+    let s:wl_last_target_buf = a:nr
+
+    if a:prefer_tab > 0 && a:prefer_tab <= tabpagenr('$') && a:prefer_tab != tabpagenr()
+        let l:cur = tabpagenr()
+        execute 'noautocmd tabnext ' . a:prefer_tab
+        let l:w = s:WinListWindowInTab(a:nr, a:display_idx)
+        if l:w != -1
+            execute l:w . 'wincmd w'
+            return 1
+        endif
+        execute 'noautocmd tabnext ' . l:cur
+    endif
+
+    let l:w = s:WinListWindowInTab(a:nr, a:display_idx)
     if l:w != -1
         execute l:w . 'wincmd w'
         return 1
     endif
-
-    " CHỈ thử tab in trên header — tối đa MỘT lần đổi tab. Trước đây quét
-    " mọi tab trong lúc đang xử lý mapping: mỗi `tabnext` phải vẽ lại cả
-    " tab, trên VNC + NFS thành vài giây -> GVim trông như bị treo.
-    if a:prefer_tab <= 0 || a:prefer_tab > tabpagenr('$') || a:prefer_tab == tabpagenr()
-        return 0
-    endif
-
-    let l:cur = tabpagenr()
-    execute 'noautocmd tabnext ' . a:prefer_tab
-    let l:w = bufwinnr(a:nr)
-    if l:w != -1
-        execute l:w . 'wincmd w'
-        return 1
-    endif
-    execute 'noautocmd tabnext ' . l:cur
+    let s:wl_last_target_buf = -1
     return 0
 endfunction
 
-function! s:WinListFocusEntry(name, dir, prefer_tab) abort
+function! s:WinListFocusEntry(name, dir, prefer_tab, display_idx) abort
     let l:nr = s:WinListBestBuffer(a:name, a:dir)
     if l:nr == -1
         return 0
     endif
-    return s:WinListGoWindow(l:nr, a:prefer_tab)
+    return s:WinListGoWindow(l:nr, a:prefer_tab, a:display_idx)
 endfunction
 
 function! s:WinListGoQuiet() abort
-    let s:wl_quiet_until = reltime()
+    let s:wl_quiet_until   = reltime()
+    let s:wl_reassert_left = 4
     if s:wl_after_jump_timer != -1
         call timer_stop(s:wl_after_jump_timer)
     endif
-    let s:wl_after_jump_timer = timer_start(300, {-> s:WinListAfterJumpRefresh()})
+    let s:wl_after_jump_timer = timer_start(150, {-> s:WinListReassertTick()})
 endfunction
 
-function! s:WinListAfterJumpRefresh(...) abort
+" Sau cú nhảy, bám lại buffer đích vài nhịp (~750ms). Việc dựng panel ở tab
+" đích (topleft split, có thể do TabEnter/EnsureWinListInTab hẹn giờ) chen
+" vào giữa nên cửa sổ hiện tại có thể bị đổi sang file khác — nhịp này kéo
+" con trỏ về đúng file đích, rồi mới dựng lại panel.
+function! s:WinListReassertTick(...) abort
     let s:wl_after_jump_timer = -1
-    let s:wl_quiet_until     = []
-    if mode() !~# '^\%(n\|no\)$'
+    if s:wl_reassert_left <= 0
         return
     endif
-    silent! call WinListRefreshAllTabs()
+    let s:wl_reassert_left -= 1
+
+    if s:wl_last_target_buf > 0 && mode() !~# '^[iRvVsSt!]'
+        let l:w = bufwinnr(s:wl_last_target_buf)
+        if l:w != -1 && bufnr('%') != s:wl_last_target_buf
+            execute 'noautocmd ' . l:w . 'wincmd w'
+        endif
+    endif
+
+    if s:wl_reassert_left > 0
+        let s:wl_after_jump_timer = timer_start(200, {-> s:WinListReassertTick()})
+    else
+        let s:wl_quiet_until = []
+        silent! call WinListRefreshAllTabs()
+    endif
 endfunction
 
 function! WinListJump() abort
@@ -2795,7 +2940,7 @@ function! WinListJump() abort
     " thuộc thứ tự cửa sổ hay việc panel đã được dựng lại giữa chừng):
     " dòng entry cho tên file, dòng ngay dưới cho đường dẫn thư mục.
     if s:WinListFocusEntry(s:WinListEntryName(line('.')),
-        \ s:WinListEntryDir(line('.')), l:header_tab)
+        \ s:WinListEntryDir(line('.')), l:header_tab, l:display_idx)
         " Không dựng lại panel ngay: giữ yên 0.8s để cú nhảy không bị lag
         " (trên NFS, WinListRefreshAllTabs rất đắt).
         call s:WinListGoQuiet()
@@ -2837,8 +2982,9 @@ function! WinListJump() abort
     endfor
 
     if l:real_win != -1
+        let s:wl_last_target_buf = winbufnr(l:real_win)
         execute l:real_win . 'wincmd w'
-        silent! call WinListRefreshSoon()
+        call s:WinListGoQuiet()
     endif
 endfunction
 
@@ -2872,6 +3018,16 @@ endfunction
 function! s:EnsureWinListInTab(tabnr) abort
     if tabpagenr() != a:tabnr        | return | endif
     if get(g:, 'netrw_expanding', 0) | return | endif
+
+    " Vừa nhảy file sang một tab CHƯA có panel: HOÃN việc dựng panel. Dựng
+    " ngay lúc này thì `topleft split` chen vào đúng lúc cửa sổ đích vừa
+    " được chọn -> tranh chấp, con trỏ có lúc dừng ở file khác.
+    if !empty(s:wl_quiet_until)
+        \ && reltimefloat(reltime(s:wl_quiet_until)) < 0.5
+        call timer_start(500, {-> s:EnsureWinListInTab(a:tabnr)})
+        return
+    endif
+
     if WinListIsOpen()
         silent! call WinListRefreshAllTabs()
     else
@@ -4748,9 +4904,15 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     chạy, chỉ là Visual thường).')
     call add(l:L, '  • NHẢY TỐI ĐA 1 LẦN ĐỔI TAB: `s:WinListGoWindow()` chỉ thử tab in')
     call add(l:L, '     trên header, KHÔNG quét mọi tab (mỗi `tabnext` phải vẽ lại cả')
-    call add(l:L, '     tab -> VNC/NFS thành treo vài giây). Panel được dựng lại MỘT')
-    call add(l:L, '     lần sau 300ms (hẹn bằng timer) để cập nhật dấu `>` active;')
-    call add(l:L, '     trong 0.2s đầu mọi yêu cầu refresh đều bị bỏ qua.')
+    call add(l:L, '     tab -> VNC/NFS thành treo vài giây).')
+    call add(l:L, '  • NHẢY ĐÚNG CỬA SỔ SPLIT: `s:WinListWindowInTab()` chọn cửa sổ có')
+    call add(l:L, '     số hiển thị trùng dòng entry (không chỉ "cửa sổ đầu tiên chứa')
+    call add(l:L, '     file"). Ưu tiên tab ghi trên header, rồi mới tab hiện tại.')
+    call add(l:L, '  • CON TRỎ KHÔNG Ở LẠI PANEL: `s:WinListRefocusTick()` (1.5s, đổi')
+    call add(l:L, '     bằng `g:winlist_refocus_ms`) đưa con trỏ về cửa sổ nội dung nếu')
+    call add(l:L, '     bạn chỉ click panel mà không làm gì; `s:WinListReassertTick()`')
+    call add(l:L, '     bám lại buffer đích 4 nhịp (~750ms) sau khi nhảy, và panel của')
+    call add(l:L, '     tab đích bị HOÃN 500ms để không chen ngang lúc nhảy.')
     call add(l:L, '  • Không nhảy được -> đứng trong panel chạy `:WinListDiag` để xem')
     call add(l:L, '     mapping có tồn tại không, dòng đang đứng, số click đã đếm.')
     call add(l:L, '  • NERDTree Enter/double-click opens file as a NEW right split')
